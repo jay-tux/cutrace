@@ -1,0 +1,42 @@
+{
+  "materials": [
+    {
+      "color": [1.0, 0.7, 0.2],
+      "specular": 0.8,
+      "reflect": 0.05,
+      "phong": 1000
+    },
+    {
+      "color": [0.2, 0.3, 0.8],
+      "specular": 0.1,
+      "reflect": 0.3,
+      "phong": 20
+    }
+  ],
+  "lights":[
+    {
+      "type": "sun",
+      "direction": [0,0,-1],
+      "color": [0.8,0.8,0.8]
+    },
+    {
+      "type": "point",
+      "position": [-10,20,10],
+      "color": [0.8,0.8,0.8]
+    }
+  ],
+  "objects": [
+    {
+      "type": "sphere",
+      "material": 0,
+      "center": [0,0,0],
+      "radius": 0.5
+    },
+    {
+      "type": "plane",
+      "material": 1,
+      "point": [0, -0.5, 0],
+      "normal": [0, 1, 0]
+    }
+  ]
+}

@@ -1,0 +1,43 @@
+{
+  "objects": [
+    {
+      "type": "triangle",
+      "points": [
+        [-1, 0, 3],
+        [1, 0, 3],
+        [0, 1, 5]
+      ],
+      "material": 0
+    },
+    {
+      "type": "triangle",
+      "points": [
+        [-2, -2, 4],
+        [-2, 2, 6],
+        [2, -2, 2]
+      ],
+      "material": 1
+    }
+  ],
+  "materials": [
+    {
+      "color": [0.5, 0.5, 0.75],
+      "specular": 0.10,
+      "reflect": 0.9,
+      "phong": 32
+    },
+    {
+      "color": [0.75, 0.5, 0.05],
+      "specular": 0.70,
+      "reflect": 0.05,
+      "phong": 32
+    }
+  ],
+  "lights": [
+    {
+      "type": "sun",
+      "direction": [0.25, 0.5, 0.33],
+      "color": [1.0, 1.0, 0.95]
+    }
+  ]
+}
