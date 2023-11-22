@@ -21,20 +21,20 @@ __device__ vector project_to_y0(ray r) {
   return r.start + r.dir * fac;
 }
 
-__device__ bool gpu::cast_ray(const gpu_scene &scene, const ray &finder, float min_dist, float &distance, size_t &hit_id, vector &hit_point, vector &normal) {
-  distance = INFINITY;
+__device__ bool gpu::cast_ray(const gpu_scene *scene, const ray *finder, float min_dist, float *distance, size_t *hit_id, vector *hit_point, vector *normal) {
+  *distance = INFINITY;
   vector hit{};
   float dist;
   vector nrm{};
   bool was_hit = false;
-  for(size_t i = 0; i < scene.objects.size; i++) {
-    const auto &obj = scene.objects[i];
-    if(intersects(finder, obj, 1e-6, hit, dist, nrm)) {
-      if(dist > min_dist && dist < distance) {
-        distance = dist;
-        hit_id = i;
-        hit_point = hit;
-        normal = nrm;
+  for(size_t i = 0; i < scene->objects.size; i++) {
+    const auto &obj = scene->objects[i];
+    if(intersects(finder, &obj, 1e-6, &hit, &dist, &nrm)) {
+      if(dist > min_dist && dist < *distance) {
+        *distance = dist;
+        *hit_id = i;
+        *hit_point = hit;
+        *normal = nrm;
         was_hit = true;
       }
     }
@@ -60,42 +60,42 @@ __global__ void kernel(cam cam, const gpu_scene scene, float *depth, vector *col
   size_t hit_id = scene.objects.size;
   vector hit_point{};
   vector normal{};
-  cast_ray(scene, r, 0.1f, dist, hit_id, hit_point, normal);
+  cast_ray(&scene, &r, 0.1f, &dist, &hit_id, &hit_point, &normal);
 
   depth[y_id * w + x_id] = dist;
   normals[y_id * w + x_id] = normal;
-  color[y_id * w + x_id] = ray_color(scene, r, 0.1f);
+  color[y_id * w + x_id] = ray_color(&scene, &r, 0.1f);
 }
 
 struct printer {
-  __device__ inline void operator()(const triangle &t) {
+  __device__ inline void operator()(const triangle *t) {
     printf("-> triangle{ .p1 = v3(%04f, %04f, %04f), .p2 = v3(%04f, %04f, %04f), .p3 = v3(%04f, %04f, %04f), .mat = %d }\n",
-           t.p1.x, t.p1.y, t.p1.z, t.p2.x, t.p2.y, t.p2.z, t.p3.x, t.p3.y, t.p3.z, (int)t.mat_idx);
+           t->p1.x, t->p1.y, t->p1.z, t->p2.x, t->p2.y, t->p2.z, t->p3.x, t->p3.y, t->p3.z, (int)t->mat_idx);
   }
 
-  __device__ inline void operator()(const triangle_set &s) {
+  __device__ inline void operator()(const triangle_set *s) {
     printf(" -> triangle_set{ .tris = [%d], .mat = %d }\n",
-           (int)s.triangles.size, (int)s.mat_idx);
+           (int)s->triangles.size, (int)s->mat_idx);
   }
 
-  __device__ inline void operator()(const sphere &s) {
+  __device__ inline void operator()(const sphere *s) {
     printf(" -> sphere{ .center = v3(%04f, %04f, %04f), .radius = %04f, .mat = %d }\n",
-           s.center.x, s.center.y, s.center.z, s.radius, (int)s.mat_idx);
+           s->center.x, s->center.y, s->center.z, s->radius, (int)s->mat_idx);
   }
 
-  __device__ inline void operator()(const plane &p) {
+  __device__ inline void operator()(const plane *p) {
     printf(" -> plane{ .point = v3(%04f, %04f, %04f), .normal = v3(%04f, %04f, %04f), .mat = %d }\n",
-           p.point.x, p.point.y, p.point.z, p.normal.x, p.normal.y, p.normal.z, (int)p.mat_idx);
+           p->point.x, p->point.y, p->point.z, p->normal.x, p->normal.y, p->normal.z, (int)p->mat_idx);
   }
 
-  __device__ inline void operator()(const sun &s) {
+  __device__ inline void operator()(const sun *s) {
     printf(" -> sun{ .direction = v3(%04f, %04f, %04f), .color = v3(%04f, %04f, %04f) }\n",
-           s.direction.x, s.direction.y, s.direction.z, s.color.x, s.color.y, s.color.z);
+           s->direction.x, s->direction.y, s->direction.z, s->color.x, s->color.y, s->color.z);
   }
 
-  __device__ inline void operator()(const point_light &p) {
+  __device__ inline void operator()(const point_light *p) {
     printf(" -> point_light{ .point = v3(%04f, %04f, %04f), .color = v3(%04f, %04f, %04f) }\n",
-           p.point.x, p.point.y, p.point.z, p.color.x, p.color.y, p.color.z);
+           p->point.x, p->point.y, p->point.z, p->color.x, p->color.y, p->color.z);
   }
 
   __device__ inline void operator()(const gpu_mat &m) {
@@ -107,10 +107,10 @@ struct printer {
 __global__ void scene_dump(gpu_scene scene) {
   printer p{};
   for(const auto &obj: scene.objects) {
-    visit(p, obj);
+    visit(&p, &obj);
   }
   for(const auto &light: scene.lights) {
-    visit(p, light);
+    visit(&p, &light);
   }
   for(const auto &m : scene.materials) {
     p(m);
@@ -177,7 +177,7 @@ gpu::render(cam cam, gpu_scene scene, size_t w, size_t h, float &max, grid<float
 
 __host__ void gpu::cleanup(gpu_scene scene) {
   for(auto &e: scene.objects) {
-    if(e.holds<triangle_set>()) cudaCheck(cudaFree(e.get<triangle_set>().triangles.buffer))
+    if(e.holds<triangle_set>()) cudaCheck(cudaFree(e.get<triangle_set>()->triangles.buffer))
   }
   cudaCheck(cudaFree(scene.objects.buffer))
   cudaCheck(cudaFree(scene.materials.buffer))

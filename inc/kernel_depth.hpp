@@ -20,8 +20,8 @@ struct cam {
 };
 
 __device__ bool cast_ray(
-        const gpu_scene &scene, const ray &finder, float min_dist, float &distance,
-        size_t &hit_id, vector &hit_point, vector &normal
+        const gpu_scene *scene, const ray *finder, float min_dist, float *distance,
+        size_t *hit_id, vector *hit_point, vector *normal
 );
 
 template <typename T>

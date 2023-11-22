@@ -28,11 +28,11 @@ struct matrix {
   }
 };
 
-__device__ bool triangle::intersect(const ray &r, float min_t, vector &hit, float &dist, vector &normal) const {
+__device__ bool triangle::intersect(const ray *r, float min_t, vector *hit, float *dist, vector *normal) const {
   auto a = p2 - p1;
   auto b = p2 - p3;
-  auto c = r.dir;
-  auto d = p2 - r.start;
+  auto c = r->dir;
+  auto d = p2 - r->start;
 
   matrix A{{a, b, d}};
   matrix B{{a, b, c}};
@@ -44,50 +44,50 @@ __device__ bool triangle::intersect(const ray &r, float min_t, vector &hit, floa
   float t0 = A.determinant() / B.determinant();
 
   if (beta >= 0 && gamma >= 0 && beta + gamma <= 1 && is_valid(min_t, t0)) {
-    dist = t0;
-    hit = r.start + dist * r.dir;
-    normal = (p2 - p3).cross(p1 - p3).normalized();
+    *dist = t0;
+    *hit = r->start + *dist * r->dir;
+    *normal = (p2 - p3).cross(p1 - p3).normalized();
     return true;
   }
 
   return false;
 }
 
-__device__ bool triangle_set::intersect(const ray &r, float min_t, vector &hit, float &dist, vector &normal) const {
+__device__ bool triangle_set::intersect(const ray *r, float min_t, vector *hit, float *dist, vector *normal) const {
   vector h{};
   float t;
-  dist = INFINITY;
+  *dist = INFINITY;
   vector n{};
   for(const auto &tri : triangles) {
-    if(tri.intersect(r, min_t, h, t, n) && t < dist) {
-      dist = t;
-      hit = h;
-      normal = n;
+    if(tri.intersect(r, min_t, &h, &t, &n) && t < *dist) {
+      *dist = t;
+      *hit = h;
+      *normal = n;
     }
   }
 
-  return dist != INFINITY;
+  return *dist != INFINITY;
 }
 
-__device__ bool plane::intersect(const ray &r, float min_t, vector &hit, float &dist, vector &n) const {
-  float t0 = (point - r.start).dot(normal) / r.dir.dot(normal);
+__device__ bool plane::intersect(const ray *r, float min_t, vector *hit, float *dist, vector *n) const {
+  float t0 = (point - r->start).dot(normal) / r->dir.dot(normal);
 
   if(is_valid(min_t, t0)) {
-    dist = t0;
-    hit = r.start + t0 * r.dir;
-    n = this->normal;
+    *dist = t0;
+    *hit = r->start + t0 * r->dir;
+    *n = this->normal;
     return true;
   }
 
   return false;
 }
 
-__device__ bool sphere::intersect(const cutrace::gpu::ray &r, float min_t, cutrace::gpu::vector &hit, float &dist,
-                                  cutrace::gpu::vector &normal) const {
-  const auto &d = r.dir.normalized();
-  const auto &c = center;
-  const auto &e = r.start;
-  const auto &R = radius;
+__device__ bool sphere::intersect(const cutrace::gpu::ray *r, float min_t, cutrace::gpu::vector *hit, float *dist,
+                                  cutrace::gpu::vector *normal) const {
+  auto d = r->dir.normalized();
+  auto c = center;
+  auto e = r->start;
+  auto R = radius;
 
   auto dec = -d.dot(e - c);
   auto sub = (d.dot(e - c) * d.dot(e - c)) - d.dot(d) * ((e - c).dot(e - c) - R * R);
@@ -99,26 +99,26 @@ __device__ bool sphere::intersect(const cutrace::gpu::ray &r, float min_t, cutra
 
   if(!is_valid(t0)) {
     if(!is_valid(t1)) return false;
-    else dist = t1;
+    else *dist = t1;
   }
   else {
-    if(!is_valid(t1)) dist = t0;
-    else dist = min(t0, t1);
+    if(!is_valid(t1)) *dist = t0;
+    else *dist = min(t0, t1);
   }
 
-  hit = r.start + dist * r.dir.normalized();
-  normal = (hit - c).normalized();
+  *hit = r->start + *dist * r->dir.normalized();
+  *normal = (*hit - c).normalized();
   return true;
 }
 
-__device__ void sun::direction_to(const cutrace::gpu::vector &point, cutrace::gpu::vector &d, float &distance) const {
-  d = -1.0f * direction;
-  distance = INFINITY;
+__device__ void sun::direction_to(const cutrace::gpu::vector *point, cutrace::gpu::vector *d, float *distance) const {
+  *d = -1.0f * direction;
+  *distance = INFINITY;
 }
 
-__device__ void point_light::direction_to(const cutrace::gpu::vector &p, cutrace::gpu::vector &direction,
-                                          float &distance) const {
-  direction = point - p.normalized();
-  distance = (point - p).norm();
+__device__ void point_light::direction_to(const cutrace::gpu::vector *p, cutrace::gpu::vector *direction,
+                                          float *distance) const {
+  *direction = point - p->normalized();
+  *distance = (point - *p).norm();
 }
 

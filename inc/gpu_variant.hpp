@@ -151,13 +151,13 @@ public:
   }
 
   template <typename T> requires(impl::one_of<T, Ts...>::value)
-  __host__ __device__ inline T &get() {
-    return *reinterpret_cast<T *>(data);
+  __host__ __device__ inline T *get() {
+    return reinterpret_cast<T *>(data);
   }
 
   template <typename T> requires(impl::one_of<T, Ts...>::value)
-  __host__ __device__ inline const T &get() const {
-    return *reinterpret_cast<const T *>(data);
+  __host__ __device__ inline const T *get() const {
+    return reinterpret_cast<const T *>(data);
   }
 };
 
@@ -165,37 +165,37 @@ namespace impl {
 template <typename Fun, typename T1, typename ... Ts>
 struct attempt_invoke {
   template <typename ... Us>
-  __device__ inline static auto invoke_const(Fun &&f, const gpu_variant<Us...> &v) {
-    return v.template holds<T1>() ? f(v.template get<T1>()) : attempt_invoke<Fun, Ts...>::template invoke_const<Us...>(f, v);
+  __device__ inline static auto invoke_const(Fun *f, const gpu_variant<Us...> *v) {
+    return v->template holds<T1>() ? (*f)(v->template get<T1>()) : attempt_invoke<Fun, Ts...>::template invoke_const<Us...>(f, v);
   }
 
   template <typename ... Us>
-  __device__ inline static auto invoke(Fun &&f, gpu_variant<Us...> &v) {
-    return v.template holds<T1>() ? f(v.template get<T1>()) : attempt_invoke<Fun, Ts...>::template invoke<Us...>(f, v);
+  __device__ inline static auto invoke(Fun *f, gpu_variant<Us...> *v) {
+    return v->template holds<T1>() ? (*f)(v->template get<T1>()) : attempt_invoke<Fun, Ts...>::template invoke<Us...>(f, v);
   }
 };
 
 template <typename Fun, typename T1>
 struct attempt_invoke<Fun, T1> {
   template <typename ... Us>
-  __device__ inline static auto invoke_const(Fun &&f, const gpu_variant<Us...> &v) {
-    return f(v.template get<T1>());
+  __device__ inline static auto invoke_const(Fun *f, const gpu_variant<Us...> *v) {
+    return (*f)(v->template get<T1>());
   }
 
   template <typename ... Us>
-  __device__ inline static auto invoke(Fun &&f, gpu_variant<Us...> &v) {
-    return f(v.template get<T1>());
+  __device__ inline static auto invoke(Fun *f, gpu_variant<Us...> *v) {
+    return (*f)(v->template get<T1>());
   }
 };
 }
 
 template <typename Fun, typename ... Ts>
-__device__ inline auto visit(Fun &&f, gpu_variant<Ts...> &v) {
+__device__ inline auto visit(Fun *f, gpu_variant<Ts...> *v) {
   return impl::attempt_invoke<Fun, Ts...>::invoke(f, v);
 }
 
 template <typename Fun, typename ... Ts>
-__device__ inline auto visit(Fun &&f, const gpu_variant<Ts...> &v) {
+__device__ inline auto visit(Fun *f, const gpu_variant<Ts...> *v) {
   return impl::attempt_invoke<Fun, Ts...>::invoke_const(f, v);
 }
 }
