@@ -236,12 +236,15 @@ cpu::cpu_scene loader::load(const std::string &file) {
       withKey<array>(mat, "color", [&materials](const array &color, const object &o) {
         withKey<double>(o, "specular", [&materials, &o, &color](const double &specular) {
           withKey<double>(o, "phong", [&materials, &o, &color, &specular](const double &phong) {
-            withKey<double>(o, "reflect", [&materials, &color, &specular, &phong](const double &reflect) {
-              materials.push_back({
-                  .color = parse_vec(color),
-                  .specular = (float) specular,
-                  .reflexivity = (float) reflect,
-                  .phong_exp = (float) phong
+            withKey<double>(o, "reflect", [&materials, &o, &color, &specular, &phong](const double &reflect) {
+              withKey<double>(o, "transparency", [&materials, &color, &specular, &phong, &reflect](const double &trans) {
+                materials.push_back({
+                    .color = parse_vec(color),
+                    .specular = (float) specular,
+                    .reflexivity = (float) reflect,
+                    .phong_exp = (float) phong,
+                    .transparency = (float) trans
+                });
               });
             });
           });

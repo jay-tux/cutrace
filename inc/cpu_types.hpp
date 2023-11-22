@@ -65,7 +65,7 @@ __host__ gpu::gpu_array<gpu::gpu_light> to_gpu(const std::vector<cpu_light>& cpu
 
 struct cpu_mat {
   vector color;
-  float specular, reflexivity, phong_exp;
+  float specular, reflexivity, phong_exp, transparency;
 
   [[nodiscard]] __host__ gpu::gpu_mat to_gpu() const;
 };

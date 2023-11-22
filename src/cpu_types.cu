@@ -109,7 +109,8 @@ gpu::gpu_mat cpu_mat::to_gpu() const {
     .color = color.to_gpu(),
     .specular = specular,
     .reflexivity = reflexivity,
-    .phong_exp = phong_exp
+    .phong_exp = phong_exp,
+    .transparency = transparency
   };
 }
 

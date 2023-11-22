@@ -21,7 +21,7 @@ __device__ vector project_to_y0(ray r) {
   return r.start + r.dir * fac;
 }
 
-__device__ bool gpu::cast_ray(const gpu_scene *scene, const ray *finder, float min_dist, float *distance, size_t *hit_id, vector *hit_point, vector *normal) {
+__device__ bool gpu::cast_ray(const gpu_scene *scene, const ray *finder, float min_dist, float *distance, size_t *hit_id, vector *hit_point, vector *normal, bool ignore_transparent) {
   *distance = INFINITY;
   vector hit{};
   float dist;
@@ -29,6 +29,10 @@ __device__ bool gpu::cast_ray(const gpu_scene *scene, const ray *finder, float m
   bool was_hit = false;
   for(size_t i = 0; i < scene->objects.size; i++) {
     const auto &obj = scene->objects[i];
+    auto lambda = [](const auto *obj) { return obj->mat_idx; };
+    auto mat = scene->materials[visit(&lambda, &scene->objects[i])];
+    if(ignore_transparent && mat.transparency > 0.0f) continue;
+
     if(intersects(finder, &obj, 1e-6, &hit, &dist, &nrm)) {
       if(dist > min_dist && dist < *distance) {
         *distance = dist;
@@ -60,7 +64,7 @@ __global__ void kernel(cam cam, const gpu_scene scene, float *depth, vector *col
   size_t hit_id = scene.objects.size;
   vector hit_point{};
   vector normal{};
-  cast_ray(&scene, &r, 0.1f, &dist, &hit_id, &hit_point, &normal);
+  cast_ray(&scene, &r, 0.1f, &dist, &hit_id, &hit_point, &normal, false);
 
   depth[y_id * w + x_id] = dist;
   normals[y_id * w + x_id] = normal;

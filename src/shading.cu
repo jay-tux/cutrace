@@ -49,7 +49,7 @@ __device__ vector gpu::phong(const gpu_scene *scene, const ray *incoming, const 
     auto color = visit(&color_visitor, &l);
     auto nn = normal->normalized();
     auto nd = direction.normalized();
-    cast_ray(scene, &shadow, FUDGE, &shadow_dist, &h_, &unused, &unused);
+    cast_ray(scene, &shadow, FUDGE, &shadow_dist, &h_, &unused, &unused, true);
     if(distance < shadow_dist) {
       auto fd = max(0.0f, nn.dot(nd));
       auto ld = mat.color * color;
@@ -73,7 +73,7 @@ __device__ inline vector ray_color(const gpu_scene *scene, const ray *incoming, 
   float distance;
   vector hit{};
 
-  if(cast_ray(scene, incoming, FUDGE, &distance, &id, &hit, &normal)) {
+  if(cast_ray(scene, incoming, FUDGE, &distance, &id, &hit, &normal, false)) {
     rgb = phong(scene, incoming, &hit, id, &normal);
 
     if constexpr(bounces != 0) {
@@ -85,9 +85,17 @@ __device__ inline vector ray_color(const gpu_scene *scene, const ray *incoming, 
       };
 
       auto lambda = [](const auto *obj) { return obj->mat_idx; };
-      float factor = scene->materials[visit(&lambda, &scene->objects[id])].reflexivity;
+      auto mat = scene->materials[visit(&lambda, &scene->objects[id])];
+      float factor = mat.reflexivity;
       auto rgb2 = ray_color<bounces - 1>(scene, &reflection, FUDGE);
       rgb += factor * rgb2;
+
+      ray passthrough {
+        .start = incoming->start + distance * incoming->dir,
+        .dir = incoming->dir
+      };
+      auto rgb3 = ray_color<bounces - 1>(scene, &passthrough, FUDGE);
+      rgb = (1.0f - mat.transparency) * rgb + mat.transparency * rgb3;
     }
   }
 
@@ -96,44 +104,4 @@ __device__ inline vector ray_color(const gpu_scene *scene, const ray *incoming, 
 
 __device__ vector gpu::ray_color(const gpu_scene *scene, const ray *incoming, float min_t) {
   return ::ray_color<BOUNCES>(scene, incoming, min_t);
-//  vector phong_colors[BOUNCES];
-//  float reflects[BOUNCES];
-//
-//  size_t performed_bounces = 0;
-//  ray current = incoming;
-//
-//  for(size_t bounce = 0; bounce < BOUNCES; bounce++) {
-//    size_t hit_id;
-//    float distance;
-//    vector normal{};
-//    vector hit_at{};
-//
-//    cast_ray(scene, current, FUDGE, distance, hit_id, hit_at, normal);
-//    if (isfinite(distance)) {
-//      performed_bounces++;
-//      phong_colors[bounce] = phong(scene, current, hit_at, hit_id, normal);
-//
-//      auto nd = current.dir.normalized();
-//      auto nn = normal.normalized();
-//      ray reflection{
-//              current.start + distance * current.dir,
-//              reflect(nd, nn)
-//      };
-//      current = reflection;
-//
-//      auto lambda = [](const auto &obj) { return obj.mat_idx; };
-//      auto material = scene.materials[visit(lambda, scene.objects[hit_id])];
-//      reflects[bounce] = material.reflexivity;
-//    }
-//    else {
-//      break;
-//    }
-//  }
-//
-//  vector color = phong_colors[BOUNCES - 1];
-//  for(size_t bounce = performed_bounces; bounce != 0; bounce--) {
-//    color = phong_colors[bounce - 1] + reflects[bounce - 1] * color;
-//  }
-//
-//  return color;
 }

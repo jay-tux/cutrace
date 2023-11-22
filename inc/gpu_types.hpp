@@ -132,7 +132,7 @@ __device__ inline void direction_to(const vector *point, const gpu_light *light,
 
 struct gpu_mat {
   vector color;
-  float specular, reflexivity, phong_exp;
+  float specular, reflexivity, phong_exp, transparency;
 };
 
 struct gpu_scene {
