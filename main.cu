@@ -13,7 +13,7 @@ int main(int argc, const char **argv) {
   auto scene = cutrace::loader::load(argv[1]);
 
   cutrace::gpu::cam cam {
-    .pos = { 0, 0, 5 }, // { 0, 3, 1 },
+    .pos = { 0, 0, 2 }, // { 0, 3, 1 },
     .up = { 0, 1, 0 }, // { 0, 0, -1 },
     .forward = { 0, 0, -1 }, // { 0, -1, 0 }
   };
@@ -30,7 +30,7 @@ int main(int argc, const char **argv) {
   cutrace::gpu::grid<float> depth_map;
   cutrace::gpu::grid<cutrace::gpu::vector> color_map;
   cutrace::gpu::grid<cutrace::gpu::vector> normal_map;
-  cutrace::gpu::render(cam, gpu_scene, 1024, 1024, max_d, depth_map, color_map, normal_map);
+  cutrace::gpu::render(cam, gpu_scene, 640, 640, max_d, depth_map, color_map, normal_map);
   cutrace::write_depth_map("./depth_map.jpg", depth_map, max_d);
   cutrace::write_normal_map("./normal_map.jpg", normal_map);
   cutrace::write_colorized("./frame.jpg", color_map);

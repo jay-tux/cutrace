@@ -77,25 +77,30 @@ __device__ inline vector ray_color(const gpu_scene *scene, const ray *incoming, 
     rgb = phong(scene, incoming, &hit, id, &normal);
 
     if constexpr(bounces != 0) {
-      auto nd = incoming->dir.normalized();
-      auto nn = normal.normalized();
-      ray reflection {
-        .start = incoming->start + distance * incoming->dir,
-        .dir = reflect(nd, nn)
-      };
-
       auto lambda = [](const auto *obj) { return obj->mat_idx; };
       auto mat = scene->materials[visit(&lambda, &scene->objects[id])];
-      float factor = mat.reflexivity;
-      auto rgb2 = ray_color<bounces - 1>(scene, &reflection, FUDGE);
-      rgb += factor * rgb2;
 
-      ray passthrough {
-        .start = incoming->start + distance * incoming->dir,
-        .dir = incoming->dir
-      };
-      auto rgb3 = ray_color<bounces - 1>(scene, &passthrough, FUDGE);
-      rgb = (1.0f - mat.transparency) * rgb + mat.transparency * rgb3;
+      if(mat.reflexivity > 1e-6) {
+        auto nd = incoming->dir.normalized();
+        auto nn = normal.normalized();
+        ray reflection{
+                .start = incoming->start + distance * incoming->dir,
+                .dir = reflect(nd, nn)
+        };
+
+        float factor = mat.reflexivity;
+        auto rgb2 = ray_color<bounces - 1>(scene, &reflection, FUDGE);
+        rgb += factor * rgb2;
+      }
+
+      if(mat.transparency > 1e-6) {
+        ray passthrough{
+                .start = incoming->start + distance * incoming->dir,
+                .dir = incoming->dir
+        };
+        auto rgb3 = ray_color<bounces - 1>(scene, &passthrough, FUDGE);
+        rgb = (1.0f - mat.transparency) * rgb + mat.transparency * rgb3;
+      }
     }
   }
 

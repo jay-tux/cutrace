@@ -6,6 +6,7 @@
 #include <sstream>
 #include "loader.hpp"
 #include "picojson.h"
+#include "mesh_loader.hpp"
 #include <sstream>
 
 using namespace cutrace;
@@ -140,7 +141,7 @@ cpu::cpu_scene loader::load(const std::string &file) {
   std::ifstream strm(file);
   picojson::parse(res, strm);
 
-  std::string err = picojson::get_last_error();
+  const std::string& err = picojson::get_last_error();
   if (!err.empty()) {
     std::cerr << err << std::endl;
     return {};
@@ -168,7 +169,8 @@ cpu::cpu_scene loader::load(const std::string &file) {
           }
           else if (type == "model") {
             withKey<std::string>(o, "file", [&objects, &mat_idx](const std::string &fname) {
-              objects.push_back(std::move(parse_obj(fname, (size_t) mat_idx)));
+              auto loaded = load_mesh(fname, mat_idx);
+              objects.insert(objects.end(), loaded.begin(), loaded.end());
             });
           }
           else if (type == "plane") {

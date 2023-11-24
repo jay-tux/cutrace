@@ -8,6 +8,7 @@
 #include "vector.hpp"
 #include "gpu_variant.hpp"
 #include "gpu_array.hpp"
+#include "scene_subdiv.hpp"
 
 namespace cutrace::gpu {
 struct ray {

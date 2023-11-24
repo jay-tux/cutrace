@@ -103,8 +103,8 @@ struct printer {
   }
 
   __device__ inline void operator()(const gpu_mat &m) {
-    printf(" -> material{ .color = v3(%04f, %04f, %04f), .specular = %04f, .reflect = %04f, .phong_exp = %.04f }\n",
-           m.color.x, m.color.y, m.color.z, m.specular, m.reflexivity, m.phong_exp);
+    printf(" -> material{ .color = v3(%04f, %04f, %04f), .specular = %04f, .reflect = %04f, .phong_exp = %.04f, .transparency = %04f }\n",
+           m.color.x, m.color.y, m.color.z, m.specular, m.reflexivity, m.phong_exp, m.reflexivity);
   }
 };
 
