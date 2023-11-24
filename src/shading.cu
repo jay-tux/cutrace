@@ -34,7 +34,7 @@ __device__ vector gpu::phong(const gpu_scene *scene, const ray *incoming, const 
 
   vector direction{};
   float distance;
-  float shadow_dist;
+  float shadow_dist_raw;
   size_t h_;
   vector unused{};
 
@@ -45,12 +45,15 @@ __device__ vector gpu::phong(const gpu_scene *scene, const ray *incoming, const 
       .dir = direction
     };
 
+    float light_dist = distance * direction.norm();
+
     light_visit color_visitor{};
     auto color = visit(&color_visitor, &l);
     auto nn = normal->normalized();
     auto nd = direction.normalized();
-    cast_ray(scene, &shadow, FUDGE, &shadow_dist, &h_, &unused, &unused, true);
-    if(distance < shadow_dist) {
+    cast_ray(scene, &shadow, FUDGE, &shadow_dist_raw, &h_, &unused, &unused, true);
+    float shadow_dist = shadow_dist_raw * shadow.dir.norm();
+    if(light_dist < shadow_dist) {
       auto fd = max(0.0f, nn.dot(nd));
       auto ld = mat.color * color;
 

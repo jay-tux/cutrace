@@ -12,12 +12,16 @@ int main(int argc, const char **argv) {
 
   auto scene = cutrace::loader::load(argv[1]);
 
+//  "eye": [1,0,2],
+//  "up": [0,1,0],
+//  "look": [-0.92388,0,-0.38268],
+
   cutrace::gpu::cam cam {
-    .pos = { 0, 0, 2 }, // { 0, 3, 1 },
+    .pos = { 1, 0, 2 }, // { 0, 3, 1 },
     .up = { 0, 1, 0 }, // { 0, 0, -1 },
     .forward = { 0, 0, -1 }, // { 0, -1, 0 }
   };
-  cam.look_at({0,0,0});
+  cam.look_at({ -0.92388,0,-0.38268 });
 
   std::cout << "Camera: \n"
                "-> pos = v3(" << cam.pos.x << ", " << cam.pos.y << ", " << cam.pos.z << ")\n"

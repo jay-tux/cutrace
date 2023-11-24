@@ -46,7 +46,7 @@ __device__ bool triangle::intersect(const ray *r, float min_t, vector *hit, floa
   if (beta >= 0 && gamma >= 0 && beta + gamma <= 1 && is_valid(min_t, t0)) {
     *dist = t0;
     *hit = r->start + *dist * r->dir;
-    *normal = (p2 - p3).cross(p1 - p3).normalized();
+    *normal = -1.0f * (p2 - p3).cross(p1 - p3).normalized();
     return true;
   }
 
@@ -118,7 +118,7 @@ __device__ void sun::direction_to(const cutrace::gpu::vector *point, cutrace::gp
 
 __device__ void point_light::direction_to(const cutrace::gpu::vector *p, cutrace::gpu::vector *direction,
                                           float *distance) const {
-  *direction = point - p->normalized();
+  *direction = (point - *p).normalized();
   *distance = (point - *p).norm();
 }
 
