@@ -3,6 +3,7 @@
 #include "loader.hpp"
 #include "kernel_depth.hpp"
 #include "images.hpp"
+#include "kernel_prepare.hpp"
 
 int main(int argc, const char **argv) {
   if(argc < 2) {
@@ -20,6 +21,8 @@ int main(int argc, const char **argv) {
                "-> forward = v3(" << cam.forward.x << ", " << cam.forward.y << ", " << cam.forward.z << ")\n";
 
   auto gpu_scene = scene.to_gpu();
+  cutrace::gpu::prepare_scene(gpu_scene, scene);
+
   float max_d;
   cutrace::gpu::grid<float> depth_map;
   cutrace::gpu::grid<cutrace::gpu::vector> color_map;

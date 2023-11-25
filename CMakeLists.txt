@@ -27,6 +27,7 @@ add_executable(cutrace
         src/images.cu
         src/shading.cu
         src/mesh_loader.cu
+        src/kernel_prepare.cu
 )
 
 #conan_install()

@@ -6,6 +6,7 @@
 #include "cuda.hpp"
 #include "kernel_depth.hpp"
 #include "shading.hpp"
+#include "cpu_types.hpp"
 
 using namespace cutrace;
 using namespace cutrace::gpu;
@@ -14,11 +15,6 @@ __host__ void cam::look_at(const vector &v) {
   forward = (v - pos).normalized();
   right = forward.cross(up).normalized(); // perpendicular to plane formed by forward & up
   up = right.cross(forward).normalized(); // make them all perpendicular to each other
-}
-
-__device__ vector project_to_y0(ray r) {
-  float fac = -r.start.y / r.dir.y;
-  return r.start + r.dir * fac;
 }
 
 __device__ bool gpu::cast_ray(const gpu_scene *scene, const ray *finder, float min_dist, float *distance, size_t *hit_id, vector *hit_point, vector *normal, bool ignore_transparent) {
@@ -151,13 +147,13 @@ gpu::render(cam cam, gpu_scene scene, float &max, grid<float> &depth_map, grid<v
   scene_dump<<<1, 1>>>(scene);
   cudaCheck(cudaDeviceSynchronize())
 
-  auto time = std::chrono::high_resolution_clock::now();
   int tpb = 256;
   size_t bpg = (cam.w * cam.h) / tpb + 1;
-  kernel<<<bpg, tpb>>>(cam, scene, gpu_dm, gpu_col, gpu_nrm);
-  cudaChecked(nullptr)
 
+  auto time = std::chrono::high_resolution_clock::now();
+  kernel<<<bpg, tpb>>>(cam, scene, gpu_dm, gpu_col, gpu_nrm);
   cudaCheck(cudaDeviceSynchronize())
+
   auto end = std::chrono::high_resolution_clock::now();
 
   std::cout << "Rendering a single frame took " << std::chrono::duration_cast<std::chrono::milliseconds>(end - time).count() << "ms.\n";

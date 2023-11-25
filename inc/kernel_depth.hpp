@@ -10,17 +10,6 @@
 #include <vector>
 
 namespace cutrace::gpu {
-struct cam {
-  vector pos;
-  vector up;
-  vector forward;
-  vector right;
-  float near, far;
-  size_t w, h;
-
-  __host__ void look_at(const vector &v);
-};
-
 __device__ bool cast_ray(
         const gpu_scene *scene, const ray *finder, float min_dist, float *distance,
         size_t *hit_id, vector *hit_point, vector *normal, bool ignore_transparent

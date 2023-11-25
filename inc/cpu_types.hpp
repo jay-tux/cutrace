@@ -8,7 +8,6 @@
 #include <vector>
 #include <variant>
 #include "gpu_types.hpp"
-#include "kernel_depth.hpp"
 
 namespace cutrace::cpu {
 struct triangle {
@@ -81,6 +80,8 @@ struct cpu_scene {
 
   [[nodiscard]] __host__ gpu::gpu_scene to_gpu() const;
 };
+
+__host__ gpu::gpu_array<size_t> find_model_indexes(const cpu_scene &scene);
 }
 
 #endif //CUTRACE_CPU_TYPES_HPP

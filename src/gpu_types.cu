@@ -4,12 +4,7 @@
 
 #include "gpu_types.hpp"
 
-#include "cuda.h"
-#include "cuda_runtime.h"
-#include "cuda_runtime_api.h"
-
-#include <stdio.h>
-
+using namespace cutrace;
 using namespace cutrace::gpu;
 
 __device__ constexpr bool is_valid(float min, float v) {
@@ -53,11 +48,32 @@ __device__ bool triangle::intersect(const ray *r, float min_t, vector *hit, floa
   return false;
 }
 
+__device__ inline bool bound_intersect(const ray *r, const bound *b) {
+  // from https://tavianator.com/2022/ray_box_boundary.html
+  float tmin = 0.0, tmax = INFINITY;
+
+  vector r_inv = { 1.0f / r->dir.x, 1.0f / r->dir.y, 1.0f / r->dir.z };
+
+  for (int d = 0; d < 3; ++d) {
+    float t1 = (b->min[d] - r->start[d]) * r_inv[d];
+    float t2 = (b->max[d] - r->start[d]) * r_inv[d];
+
+    tmin = min(max(t1, tmin), max(t2, tmin));
+    tmax = max(min(t1, tmax), min(t2, tmax));
+  }
+
+  return tmin <= tmax;
+}
+
 __device__ bool triangle_set::intersect(const ray *r, float min_t, vector *hit, float *dist, vector *normal) const {
   vector h{};
   float t;
   *dist = INFINITY;
   vector n{};
+
+  // culling
+  if(!bound_intersect(r, &bounding_box)) return false;
+
   for(const auto &tri : triangles) {
     if(tri.intersect(r, min_t, &h, &t, &n) && t < *dist) {
       *dist = t;
@@ -111,7 +127,7 @@ __device__ bool sphere::intersect(const cutrace::gpu::ray *r, float min_t, cutra
   return true;
 }
 
-__device__ void sun::direction_to(const cutrace::gpu::vector *point, cutrace::gpu::vector *d, float *distance) const {
+__device__ void sun::direction_to(const cutrace::gpu::vector *, cutrace::gpu::vector *d, float *distance) const {
   *d = -1.0f * direction;
   *distance = INFINITY;
 }
@@ -121,4 +137,3 @@ __device__ void point_light::direction_to(const cutrace::gpu::vector *p, cutrace
   *direction = (point - *p).normalized();
   *distance = (point - *p).norm();
 }
-
