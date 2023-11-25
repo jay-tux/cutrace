@@ -6,6 +6,8 @@ set(CMAKE_C_COMPILER "gcc")
 set(CMAKE_CXX_COMPILER "g++")
 set(CMAKE_CXX_COMPILER_ID "gcc")
 set(CMAKE_PROJECT_TOP_LEVEL_INCLUDES conan_provider.cmake)
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
 project(cutrace CUDA)
 
 include(FetchContent)
@@ -29,8 +31,6 @@ add_executable(cutrace
         src/mesh_loader.cu
         src/kernel_prepare.cu
 )
-
-#conan_install()
 
 find_package(ASSIMP REQUIRED)
 

@@ -10,22 +10,50 @@
 #include "gpu_array.hpp"
 #include "scene_subdiv.hpp"
 
+/**
+ * @brief Main namespace for GPU-related code
+ */
 namespace cutrace::gpu {
+/**
+ * @brief Struct representing a ray.
+ */
 struct ray {
-  vector start;
-  vector dir;
+  vector start; //!< The starting point of the ray
+  vector dir; //!< The direction of the ray
 };
 
+/**
+ * @brief Concept relating what it means to be a renderable object.
+ * @tparam T The type to check
+ *
+ * For a type to construct objects that can be rendered, it needs to support the following (on a `const T &t`):
+ *  - `t.intersect(const cutrace::gpu::ray *, float, cutrace::gpu::vector *, float *, cutrace::gpu::vector *) -> bool`, and
+ *  - `t.mat_idx` (a public field of type `size_t`).
+ */
 template <typename T>
 concept object = requires(const T &t, const ray *r, float min_t, vector *p, float *dist, vector *normal) {
   { t.intersect(r, min_t, p, dist, normal) } -> std::same_as<bool>;
   { t.mat_idx } -> std::same_as<const size_t &>;
 };
 
+/**
+ * @brief A struct representing a single triangle. Triangle corners are expected to be counter-clockwise.
+ */
 struct triangle {
-  vector p1, p2, p3;
-  size_t mat_idx;
+  vector p1, //!< The first point of the triangle
+         p2, //!< The second point of the triangle
+         p3; //!< The third point of the triangle
+  size_t mat_idx; //!< The index of the material to render the triangle with
 
+  /**
+   * @brief (Device) function to check if a ray intersects this triangle.
+   * @param[in] r The ray
+   * @param[in] min_t The minimal required parametric distance from the ray's origin to consider the intersection
+   * @param[out] hit The coordinates of the hit, if any
+   * @param[out] dist The parametric distance of the hit, if any
+   * @param[out] normal The normal at the point of the hit, if any
+   * @return True if there's an intersection, otherwise false.
+   */
   __device__ bool intersect(const ray *r, float min_t, vector *hit, float *dist, vector *normal) const;
 };
 

@@ -1,0 +1,11 @@
+_build/
+_doxygen/
+_static/
+_templates/
+api/
+bin/
+html/
+include/
+lib/
+lib64/
+pyvenv.cfg
