@@ -12,6 +12,10 @@ struct vector {
   float y;
   float z;
 
+  constexpr __host__ __device__ float operator[](int i) const {
+    return i == 0 ? x : i == 1 ? y : z;
+  }
+
   [[nodiscard]] constexpr __host__ __device__ vector cross(const vector &other) const {
     return {
       y * other.z - z * other.y,
@@ -56,6 +60,22 @@ struct vector {
   }
 };
 
+struct bound {
+  vector min, max;
+
+  __host__ __device__ inline bound &merge(const bound &other) {
+    min.x = fminf(min.x, other.min.x);
+    min.y = fminf(min.y, other.min.y);
+    min.z = fminf(min.z, other.min.z);
+
+    max.x = fmaxf(max.x, other.max.x);
+    max.y = fmaxf(max.y, other.max.y);
+    max.z = fmaxf(max.z, other.max.z);
+
+    return *this;
+  }
+};
+
 __host__ __device__ constexpr vector operator*(float f, const vector &v) {
   return v * f;
 }
@@ -79,3 +99,4 @@ struct vector {
 }
 
 #endif //CUTRACE_VECTOR_HPP
+

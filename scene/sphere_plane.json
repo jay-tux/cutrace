@@ -4,13 +4,22 @@
       "color": [1.0, 0.7, 0.2],
       "specular": 0.8,
       "reflect": 0.05,
-      "phong": 1000
+      "phong": 1000,
+      "transparency": 0
+    },
+    {
+      "color": [0.01, 0.9, 0.9],
+      "specular": 0.8,
+      "reflect": 0.05,
+      "phong": 1000,
+      "transparency": 0.5
     },
     {
       "color": [0.2, 0.3, 0.8],
       "specular": 0.1,
       "reflect": 0.3,
-      "phong": 20
+      "phong": 20,
+      "transparency": 0
     }
   ],
   "lights":[
@@ -33,8 +42,20 @@
       "radius": 0.5
     },
     {
-      "type": "plane",
+      "type": "sphere",
+      "material": 0,
+      "center": [0,1,0],
+      "radius": 0.5
+    },
+    {
+      "type": "sphere",
       "material": 1,
+      "center": [0,0,0],
+      "radius": 1.1
+    },
+    {
+      "type": "plane",
+      "material": 2,
       "point": [0, -0.5, 0],
       "normal": [0, 1, 0]
     }

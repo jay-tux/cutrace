@@ -8,6 +8,7 @@
 #include "vector.hpp"
 #include "gpu_variant.hpp"
 #include "gpu_array.hpp"
+#include "scene_subdiv.hpp"
 
 namespace cutrace::gpu {
 struct ray {
@@ -18,6 +19,7 @@ struct ray {
 template <typename T>
 concept object = requires(const T &t, const ray *r, float min_t, vector *p, float *dist, vector *normal) {
   { t.intersect(r, min_t, p, dist, normal) } -> std::same_as<bool>;
+  { t.mat_idx } -> std::same_as<const size_t &>;
 };
 
 struct triangle {
@@ -30,6 +32,7 @@ struct triangle {
 struct triangle_set {
   gpu_array<triangle> triangles;
   size_t mat_idx;
+  bound bounding_box;
 
   __device__ bool intersect(const ray *r, float min_t, vector *hit, float *dist, vector *normal) const;
 };
@@ -132,7 +135,18 @@ __device__ inline void direction_to(const vector *point, const gpu_light *light,
 
 struct gpu_mat {
   vector color;
-  float specular, reflexivity, phong_exp;
+  float specular, reflexivity, phong_exp, transparency;
+};
+
+struct cam {
+  vector pos;
+  vector up;
+  vector forward;
+  vector right;
+  float near, far;
+  size_t w, h;
+
+  __host__ void look_at(const vector &v);
 };
 
 struct gpu_scene {

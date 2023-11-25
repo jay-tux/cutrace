@@ -8,6 +8,14 @@
 using namespace cutrace;
 using namespace cutrace::cpu;
 
+constexpr inline float min(float f1, float f2, float f3) {
+  return fminf(f1, fminf(f2, f3));
+}
+
+constexpr inline float max(float f1, float f2, float f3) {
+  return fmaxf(f1, fmaxf(f2, f3));
+}
+
 template <typename T, typename GT, typename Fun>
 concept t_to_gpu_fun = requires(Fun &&f, const T &t) {
   { f(t) } -> std::same_as<GT>;
@@ -31,7 +39,12 @@ gpu::gpu_array<GT> cpu_to_gpu(const std::vector<T> &cpus, Fun &&f) {
 }
 
 __host__ gpu::triangle triangle::to_gpu() const {
-  return { p1.to_gpu(), p2.to_gpu(), p3.to_gpu(), mat_idx };
+  return {
+          .p1 = p1.to_gpu(),
+          .p2 = p2.to_gpu(),
+          .p3 = p3.to_gpu(),
+          .mat_idx = mat_idx
+  };
 }
 
 __host__ gpu::triangle_set triangle_set::to_gpu() const {
@@ -39,6 +52,7 @@ __host__ gpu::triangle_set triangle_set::to_gpu() const {
     .triangles = { nullptr, 0 },
     .mat_idx = mat_idx
   };
+  // bounding box is calculated by prepare, on GPU later
 
   cudaCheck(cudaMallocManaged(&set.triangles.buffer, tris.size() * sizeof(gpu::triangle)))
 
@@ -109,7 +123,8 @@ gpu::gpu_mat cpu_mat::to_gpu() const {
     .color = color.to_gpu(),
     .specular = specular,
     .reflexivity = reflexivity,
-    .phong_exp = phong_exp
+    .phong_exp = phong_exp,
+    .transparency = transparency
   };
 }
 
@@ -125,4 +140,14 @@ gpu::gpu_scene cpu_scene::to_gpu() const {
           .lights = ::to_gpu(lights),
           .materials = ::to_gpu(materials)
   };
+}
+
+gpu::gpu_array<size_t> cpu::find_model_indexes(const cutrace::cpu::cpu_scene &scene) {
+  std::vector<size_t> idx;
+  for(size_t i = 0; i < scene.objects.size(); i++) {
+    const auto &model = scene.objects[i];
+    if(std::holds_alternative<triangle_set>(model)) idx.push_back(i);
+  }
+
+  return cpu_to_gpu<size_t, size_t>(idx, [](const size_t i) { return i; });
 }

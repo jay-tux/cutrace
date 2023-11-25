@@ -24,13 +24,15 @@
       "color": [0.5, 0.5, 0.75],
       "specular": 0.10,
       "reflect": 0.9,
-      "phong": 32
+      "phong": 32,
+      "transparency": 0
     },
     {
       "color": [0.75, 0.5, 0.05],
       "specular": 0.70,
       "reflect": 0.05,
-      "phong": 32
+      "phong": 32,
+      "transparency": 0
     }
   ],
   "lights": [

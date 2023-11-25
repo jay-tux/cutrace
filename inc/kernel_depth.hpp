@@ -10,26 +10,17 @@
 #include <vector>
 
 namespace cutrace::gpu {
-struct cam {
-  vector pos;
-  vector up;
-  vector forward;
-  vector right;
-
-  __host__ void look_at(const vector &v);
-};
-
 __device__ bool cast_ray(
         const gpu_scene *scene, const ray *finder, float min_dist, float *distance,
-        size_t *hit_id, vector *hit_point, vector *normal
+        size_t *hit_id, vector *hit_point, vector *normal, bool ignore_transparent
 );
 
 template <typename T>
 using grid = std::vector<std::vector<T>>;
 
 __host__ void
-render(cam cam, gpu_scene scene, size_t w, size_t h, float &max,
-       grid<float> &depth, grid<vector> &color, grid<vector> &normals
+render(cam cam, gpu_scene scene, float &max, grid<float> &depth, grid<vector> &color,
+       grid<vector> &normals
 );
 
 __host__ void cleanup(gpu_scene scene);

@@ -65,7 +65,7 @@ __host__ gpu::gpu_array<gpu::gpu_light> to_gpu(const std::vector<cpu_light>& cpu
 
 struct cpu_mat {
   vector color;
-  float specular, reflexivity, phong_exp;
+  float specular, reflexivity, phong_exp, transparency;
 
   [[nodiscard]] __host__ gpu::gpu_mat to_gpu() const;
 };
@@ -73,12 +73,15 @@ struct cpu_mat {
 __host__ gpu::gpu_array<gpu::gpu_mat> to_gpu(const std::vector<cpu_mat> &cpus);
 
 struct cpu_scene {
+  gpu::cam camera;
   std::vector<cpu_object> objects;
   std::vector<cpu_light> lights;
   std::vector<cpu_mat> materials;
 
   [[nodiscard]] __host__ gpu::gpu_scene to_gpu() const;
 };
+
+__host__ gpu::gpu_array<size_t> find_model_indexes(const cpu_scene &scene);
 }
 
 #endif //CUTRACE_CPU_TYPES_HPP
