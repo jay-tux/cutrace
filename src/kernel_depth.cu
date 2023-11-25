@@ -46,19 +46,20 @@ __device__ bool gpu::cast_ray(const gpu_scene *scene, const ray *finder, float m
   return was_hit;
 }
 
-__global__ void kernel(cam cam, const gpu_scene scene, float *depth, vector *color, vector *normals, size_t w, size_t h) {
+__global__ void kernel(cam cam, const gpu_scene scene, float *depth, vector *color, vector *normals) {
   size_t tid = threadIdx.x + blockIdx.x * blockDim.x;
-  size_t max = w * h;
+  size_t max = cam.w * cam.h;
   if(tid >= max) return;
 
-  size_t x_id = tid % w;
-  size_t y_id = tid / w;
+  size_t x_id = tid % cam.w;
+  size_t y_id = tid / cam.w;
 
   float dist = INFINITY;
+  float aspect = (float)cam.w / (float)cam.h;
 
   ray r{
     .start = cam.pos,
-    .dir = (cam.forward + ((float)x_id / (float)w - 0.5f) * cam.right + (0.5f - (float)y_id / (float)h) * cam.up).normalized()
+    .dir = (cam.forward + (((float)x_id / (float)cam.w - 0.5f) * aspect) * cam.right + (0.5f - (float)y_id / (float)cam.h) * cam.up).normalized()
   };
 
   size_t hit_id = scene.objects.size;
@@ -66,9 +67,9 @@ __global__ void kernel(cam cam, const gpu_scene scene, float *depth, vector *col
   vector normal{};
   cast_ray(&scene, &r, 0.1f, &dist, &hit_id, &hit_point, &normal, false);
 
-  depth[y_id * w + x_id] = dist;
-  normals[y_id * w + x_id] = normal;
-  color[y_id * w + x_id] = ray_color(&scene, &r, 0.1f);
+  depth[y_id * cam.w + x_id] = dist;
+  normals[y_id * cam.w + x_id] = normal;
+  color[y_id * cam.w + x_id] = ray_color(&scene, &r, 0.1f);
 }
 
 struct printer {
@@ -122,38 +123,38 @@ __global__ void scene_dump(gpu_scene scene) {
 }
 
 __host__ void
-gpu::render(cam cam, gpu_scene scene, size_t w, size_t h, float &max, grid<float> &depth_map, grid<vector> &colors, grid<vector> &normals) {
-  depth_map.resize(h, {});
+gpu::render(cam cam, gpu_scene scene, float &max, grid<float> &depth_map, grid<vector> &colors, grid<vector> &normals) {
+  depth_map.resize(cam.h, {});
   for(auto &row: depth_map) {
-    row.resize(w, 0.0f);
+    row.resize(cam.w, 0.0f);
   }
 
-  colors.resize(h, {});
+  colors.resize(cam.h, {});
   for(auto &row: colors) {
-    row.resize(w, {});
+    row.resize(cam.w, {});
   }
 
-  normals.resize(h, {});
+  normals.resize(cam.h, {});
   for(auto &row: normals) {
-    row.resize(w, {});
+    row.resize(cam.w, {});
   }
 
   float *gpu_dm = nullptr;
-  cudaCheck(cudaMallocManaged(&gpu_dm, sizeof(float) * w * h))
+  cudaCheck(cudaMallocManaged(&gpu_dm, sizeof(float) * cam.w * cam.h))
 
   vector *gpu_col = nullptr;
-  cudaCheck(cudaMallocManaged(&gpu_col, sizeof(vector) * w * h))
+  cudaCheck(cudaMallocManaged(&gpu_col, sizeof(vector) * cam.w * cam.h))
 
   vector *gpu_nrm = nullptr;
-  cudaCheck(cudaMallocManaged(&gpu_nrm, sizeof(vector) * w * h))
+  cudaCheck(cudaMallocManaged(&gpu_nrm, sizeof(vector) * cam.w * cam.h))
 
   scene_dump<<<1, 1>>>(scene);
   cudaCheck(cudaDeviceSynchronize())
 
   auto time = std::chrono::high_resolution_clock::now();
   int tpb = 256;
-  size_t bpg = (w * h) / tpb + 1;
-  kernel<<<bpg, tpb>>>(cam, scene, gpu_dm, gpu_col, gpu_nrm, w, h);
+  size_t bpg = (cam.w * cam.h) / tpb + 1;
+  kernel<<<bpg, tpb>>>(cam, scene, gpu_dm, gpu_col, gpu_nrm);
   cudaChecked(nullptr)
 
   cudaCheck(cudaDeviceSynchronize())
@@ -162,9 +163,9 @@ gpu::render(cam cam, gpu_scene scene, size_t w, size_t h, float &max, grid<float
   std::cout << "Rendering a single frame took " << std::chrono::duration_cast<std::chrono::milliseconds>(end - time).count() << "ms.\n";
 
   for(size_t i = 0; i < depth_map.size(); i++) {
-    cudaCheck(cudaMemcpy(depth_map[i].data(), &gpu_dm[i * w], sizeof(float) * w, cudaMemcpyDeviceToHost))
-    cudaCheck(cudaMemcpy(colors[i].data(), &gpu_col[i * w], sizeof(vector) * w, cudaMemcpyDeviceToHost))
-    cudaCheck(cudaMemcpy(normals[i].data(), &gpu_nrm[i * w], sizeof(vector) * w, cudaMemcpyDeviceToHost))
+    cudaCheck(cudaMemcpy(depth_map[i].data(), &gpu_dm[i * cam.w], sizeof(float) * cam.w, cudaMemcpyDeviceToHost))
+    cudaCheck(cudaMemcpy(colors[i].data(), &gpu_col[i * cam.w], sizeof(vector) * cam.w, cudaMemcpyDeviceToHost))
+    cudaCheck(cudaMemcpy(normals[i].data(), &gpu_nrm[i * cam.w], sizeof(vector) * cam.w, cudaMemcpyDeviceToHost))
   }
 
   cudaCheck(cudaFree(gpu_dm))

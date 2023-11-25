@@ -15,6 +15,8 @@ struct cam {
   vector up;
   vector forward;
   vector right;
+  float near, far;
+  size_t w, h;
 
   __host__ void look_at(const vector &v);
 };
@@ -28,8 +30,8 @@ template <typename T>
 using grid = std::vector<std::vector<T>>;
 
 __host__ void
-render(cam cam, gpu_scene scene, size_t w, size_t h, float &max,
-       grid<float> &depth, grid<vector> &color, grid<vector> &normals
+render(cam cam, gpu_scene scene, float &max, grid<float> &depth, grid<vector> &color,
+       grid<vector> &normals
 );
 
 __host__ void cleanup(gpu_scene scene);

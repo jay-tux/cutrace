@@ -8,6 +8,7 @@
 #include <vector>
 #include <variant>
 #include "gpu_types.hpp"
+#include "kernel_depth.hpp"
 
 namespace cutrace::cpu {
 struct triangle {
@@ -73,6 +74,7 @@ struct cpu_mat {
 __host__ gpu::gpu_array<gpu::gpu_mat> to_gpu(const std::vector<cpu_mat> &cpus);
 
 struct cpu_scene {
+  gpu::cam camera;
   std::vector<cpu_object> objects;
   std::vector<cpu_light> lights;
   std::vector<cpu_mat> materials;

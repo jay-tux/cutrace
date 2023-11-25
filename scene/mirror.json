@@ -1,4 +1,13 @@
 {
+  "camera": {
+    "near_plane": 0.1,
+    "far_plane": 1000.0,
+    "eye": [1,0,2],
+    "up": [0,1,0],
+    "look": [-0.92388,0,-0.38268],
+    "width": 1920,
+    "height": 1080
+  },
   "lights":[
     {
       "type": "point",

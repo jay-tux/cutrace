@@ -89,53 +89,6 @@ inline cpu::vector parse_vec(const array &a) {
   return res;
 }
 
-inline cpu_object parse_obj(const std::string &file, size_t mat_idx) {
-  std::vector<cpu::vector> vertices;
-  std::vector<std::vector<size_t>> faces;
-
-  std::string line;
-  std::ifstream strm(file);
-  while(std::getline(strm, line)) {
-//    std::getline(strm, line);
-//    if(line.empty()) break;
-
-    std::string part;
-    std::stringstream line_strm(line);
-    line_strm >> part;
-    if(part == "v") {
-      float x, y, z;
-      line_strm >> x >> y >> z;
-      vertices.push_back(vector{ x, y, z });
-    }
-    else if(part == "f") {
-      std::vector<size_t> verts;
-      size_t idx;
-      std::string garbage;
-      while(!line_strm.eof()) {
-        line_strm >> idx;
-        verts.push_back(idx);
-        if(line_strm.peek() == '/') line_strm >> garbage;
-      }
-      faces.push_back(std::move(verts));
-    }
-  }
-
-  cpu::triangle_set set{
-    .tris = {},
-    .mat_idx = mat_idx
-  };
-  for(const auto &f: faces) {
-    size_t v1 = f[0], v2 = f[1], v3 = f[2];
-    set.tris.push_back(triangle{ vertices[v1], vertices[v2], vertices[v3] });
-    for(size_t i = 3; i < f.size(); i++)
-      set.tris.push_back(triangle{
-        .p1 = vertices[v1], .p2 = vertices[f[i - 1]], .p3 = vertices[f[i]]
-      });
-  }
-
-  return set;
-}
-
 cpu::cpu_scene loader::load(const std::string &file) {
   picojson::value res;
   std::ifstream strm(file);
@@ -147,9 +100,34 @@ cpu::cpu_scene loader::load(const std::string &file) {
     return {};
   }
 
+  gpu::cam cam{};
   std::vector<cpu_object> objects;
   std::vector<cpu_light> lights;
   std::vector<cpu_mat> materials;
+
+  withKey<object>(res, "camera", [&cam](const object &camera) {
+    withKey<double>(camera, "near_plane", [&cam](const double &near) {
+      cam.near = (float)near;
+    });
+    withKey<double>(camera, "far_plane", [&cam](const double &far) {
+      cam.far = (float)far;
+    });
+    withKey<array>(camera, "eye", [&cam](const array &eye) {
+      cam.pos = parse_vec(eye).to_gpu();
+    });
+    withKey<array>(camera, "up", [&cam](const array &up) {
+      cam.up = parse_vec(up).to_gpu();
+    });
+    withKey<array>(camera, "look", [&cam](const array &look) {
+      cam.look_at(parse_vec(look).to_gpu());
+    });
+    withKey<double>(camera, "width", [&cam](const double &w) {
+      cam.w = (size_t)w;
+    });
+    withKey<double>(camera, "height", [&cam](const double &h) {
+      cam.h = (size_t)h;
+    });
+  });
 
   withKey<array>(res, "objects", [&objects](const array &a) {
     for (const auto &obj: a) {
@@ -255,5 +233,5 @@ cpu::cpu_scene loader::load(const std::string &file) {
     }
   });
 
-  return {.objects = objects, .lights = lights, .materials = materials};
+  return {.camera = cam, .objects = objects, .lights = lights, .materials = materials};
 }

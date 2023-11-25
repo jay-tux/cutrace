@@ -11,17 +11,7 @@ int main(int argc, const char **argv) {
   }
 
   auto scene = cutrace::loader::load(argv[1]);
-
-//  "eye": [1,0,2],
-//  "up": [0,1,0],
-//  "look": [-0.92388,0,-0.38268],
-
-  cutrace::gpu::cam cam {
-    .pos = { 1, 0, 2 }, // { 0, 3, 1 },
-    .up = { 0, 1, 0 }, // { 0, 0, -1 },
-    .forward = { 0, 0, -1 }, // { 0, -1, 0 }
-  };
-  cam.look_at({ -0.92388,0,-0.38268 });
+  const auto &cam = scene.camera;
 
   std::cout << "Camera: \n"
                "-> pos = v3(" << cam.pos.x << ", " << cam.pos.y << ", " << cam.pos.z << ")\n"
@@ -34,7 +24,7 @@ int main(int argc, const char **argv) {
   cutrace::gpu::grid<float> depth_map;
   cutrace::gpu::grid<cutrace::gpu::vector> color_map;
   cutrace::gpu::grid<cutrace::gpu::vector> normal_map;
-  cutrace::gpu::render(cam, gpu_scene, 640, 640, max_d, depth_map, color_map, normal_map);
+  cutrace::gpu::render(scene.camera, gpu_scene, max_d, depth_map, color_map, normal_map);
   cutrace::write_depth_map("./depth_map.jpg", depth_map, max_d);
   cutrace::write_normal_map("./normal_map.jpg", normal_map);
   cutrace::write_colorized("./frame.jpg", color_map);
