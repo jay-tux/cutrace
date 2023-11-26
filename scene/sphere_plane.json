@@ -1,4 +1,13 @@
 {
+  "camera": {
+    "near_plane": 0.1,
+    "far_plane": 1000.0,
+    "eye": [0,0,-5],
+    "up": [0,1,0],
+    "look": [0,0,0],
+    "width": 1920,
+    "height": 1080
+  },
   "materials": [
     {
       "color": [1.0, 0.7, 0.2],
@@ -17,7 +26,7 @@
     {
       "color": [0.2, 0.3, 0.8],
       "specular": 0.1,
-      "reflect": 0.3,
+      "reflect": 0.5,
       "phong": 20,
       "transparency": 0
     }
