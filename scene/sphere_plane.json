@@ -26,7 +26,7 @@
     {
       "color": [0.2, 0.3, 0.8],
       "specular": 0.1,
-      "reflect": 0.3,
+      "reflect": 0.5,
       "phong": 20,
       "transparency": 0
     }
