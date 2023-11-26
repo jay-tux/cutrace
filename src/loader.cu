@@ -26,12 +26,12 @@ inline void with(const picojson::value &val, Fun &&f) {
 }
 
 template <typename T, typename Fun> requires(std::invocable<Fun, const T &>)
-inline void withKey(const picojson::value &val, const char *key, Fun &&f) {
+inline void withKey(const picojson::value &val, const char *key, Fun &&f, bool warn_missing = true) {
   if(val.is<object>()) {
     auto it = val.get<object>().find(key);
     if(it != val.get<object>().end() && it->second.is<T>()) {
       f(it->second.get<T>());
-    } else if(it == val.get<object>().end()) {
+    } else if(it == val.get<object>().end() && warn_missing) {
       std::cerr << "Key '" << key << "' does not exist.\n";
     } else {
       std::cerr << "Expected a " << typeid(T).name() << ", got " << it->second.serialize() << "\n";
@@ -42,12 +42,12 @@ inline void withKey(const picojson::value &val, const char *key, Fun &&f) {
 }
 
 template <typename T, typename Fun> requires(std::invocable<Fun, const T &, const object &>)
-inline void withKey(const picojson::value &val, const char *key, Fun &&f) {
+inline void withKey(const picojson::value &val, const char *key, Fun &&f, bool warn_missing = true) {
   if(val.is<object>()) {
     auto it = val.get<object>().find(key);
     if(it != val.get<object>().end() && it->second.is<T>()) {
       f(it->second.get<T>(), val.get<object>());
-    } else if(it == val.get<object>().end()) {
+    } else if(it == val.get<object>().end() && warn_missing) {
       std::cerr << "Key '" << key << "' does not exist.\n";
     } else {
       std::cerr << "Expected a " << typeid(T).name() << ", got " << it->second.serialize() << "\n";
@@ -58,11 +58,11 @@ inline void withKey(const picojson::value &val, const char *key, Fun &&f) {
 }
 
 template <typename T, typename Fun> requires(std::invocable<Fun, const T &>)
-inline void withKey(const object &o, const char *key, Fun &&f) {
+inline void withKey(const object &o, const char *key, Fun &&f, bool warn_missing = true) {
   auto it = o.find(key);
   if(it != o.end() && it->second.is<T>()) {
     f(it->second.get<T>());
-  } else if(it == o.end()) {
+  } else if(it == o.end() && warn_missing) {
     std::cerr << "Key '" << key << "' does not exist.\n";
   } else {
     std::cerr << "Expected a " << typeid(T).name() << ", got " << it->second.serialize() << "\n";
@@ -108,25 +108,25 @@ cpu::cpu_scene loader::load(const std::string &file) {
   withKey<object>(res, "camera", [&cam](const object &camera) {
     withKey<double>(camera, "near_plane", [&cam](const double &near) {
       cam.near = (float)near;
-    });
+    }, false);
     withKey<double>(camera, "far_plane", [&cam](const double &far) {
       cam.far = (float)far;
-    });
+    }, false);
     withKey<array>(camera, "eye", [&cam](const array &eye) {
       cam.pos = parse_vec(eye).to_gpu();
-    });
+    }, false);
     withKey<array>(camera, "up", [&cam](const array &up) {
       cam.up = parse_vec(up).to_gpu();
-    });
+    }, false);
     withKey<array>(camera, "look", [&cam](const array &look) {
       cam.look_at(parse_vec(look).to_gpu());
-    });
+    }, false);
     withKey<double>(camera, "width", [&cam](const double &w) {
       cam.w = (size_t)w;
-    });
+    }, false);
     withKey<double>(camera, "height", [&cam](const double &h) {
       cam.h = (size_t)h;
-    });
+    }, false);
   });
 
   withKey<array>(res, "objects", [&objects](const array &a) {
@@ -186,22 +186,20 @@ cpu::cpu_scene loader::load(const std::string &file) {
       withKey<std::string>(obj, "type", [&lights](const std::string &type, const object &o) {
         if (type == "sun") {
           withKey<array>(o, "direction", [&lights, &o](const array &a) {
-            withKey<array>(o, "color", [&lights, &a](const array &a2) {
-              lights.emplace_back(sun{
-                      .direction = parse_vec(a),
-                      .color = parse_vec(a2)
-              });
-            });
+            auto l = sun { .direction = parse_vec(a) };
+            withKey<array>(o, "color", [&l](const array &a2) {
+              l.color = parse_vec(a2);
+            }, false);
+            lights.push_back(l);
           });
         }
         else if (type == "point") {
           withKey<array>(o, "position", [&lights, &o](const array &pos) {
-            withKey<array>(o, "color", [&lights, &pos](const array &color) {
-              lights.emplace_back(point_light{
-                .point = parse_vec(pos),
-                .color = parse_vec(color)
-              });
+            auto l = point_light { .point = parse_vec(pos) };
+            withKey<array>(o, "color", [&l](const array &color) {
+              l.color = parse_vec(color);
             });
+            lights.push_back(l);
           });
         }
         else {
@@ -214,21 +212,24 @@ cpu::cpu_scene loader::load(const std::string &file) {
   withKey<array>(res, "materials", [&materials](const array &a) {
     for (const auto &mat: a) {
       withKey<array>(mat, "color", [&materials](const array &color, const object &o) {
-        withKey<double>(o, "specular", [&materials, &o, &color](const double &specular) {
-          withKey<double>(o, "phong", [&materials, &o, &color, &specular](const double &phong) {
-            withKey<double>(o, "reflect", [&materials, &o, &color, &specular, &phong](const double &reflect) {
-              withKey<double>(o, "transparency", [&materials, &color, &specular, &phong, &reflect](const double &trans) {
-                materials.push_back({
-                    .color = parse_vec(color),
-                    .specular = (float) specular,
-                    .reflexivity = (float) reflect,
-                    .phong_exp = (float) phong,
-                    .transparency = (float) trans
-                });
-              });
-            });
-          });
-        });
+        cpu_mat m {
+          .color = parse_vec(color)
+        };
+
+        withKey<double>(o, "specular", [&m](const double &specular) {
+          m.specular = specular;
+        }, false);
+        withKey<double>(o, "phong", [&m](const double &phong) {
+          m.phong_exp = phong;
+        }, false);
+        withKey<double>(o, "reflect", [&m](const double &reflect) {
+          m.reflexivity = reflect;
+        }, false);
+        withKey<double>(o, "transparency", [&m](const double &trans) {
+          m.transparency = trans;
+        }, false);
+
+        materials.push_back(m);
       });
     }
   });
