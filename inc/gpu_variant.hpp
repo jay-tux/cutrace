@@ -8,6 +8,9 @@
 #include <concepts>
 #include <type_traits>
 
+/**
+ * @brief Main namespace for GPU-related code.
+ */
 namespace cutrace::gpu {
 namespace impl {
 constexpr const static size_t invalid = (size_t)-1;
@@ -120,41 +123,81 @@ concept invocable_with = requires(F &&f, Ts... ts) {
 };
 }
 
+/**
+ * @brief A simple implementation of `std::variant`, but for GPU.
+ * @tparam Ts The types to select from
+ */
 template <typename ... Ts> requires(sizeof(char) == 1)
 class gpu_variant {
 private:
-  char data[impl::max_size<Ts...>::value] = {};
-  size_t idx = invalid;
-  constexpr static size_t invalid = impl::invalid;
+  char data[impl::max_size<Ts...>::value] = {}; //!< The internal value
+  size_t idx = invalid; //!< Which type is contained
+  constexpr static size_t invalid = impl::invalid; //!< What index marks an invalid type
 
 public:
+  /**
+   * @brief Constructs a default, invalid variant.
+   */
   constexpr gpu_variant() = default;
 
+  /**
+   * @brief Constructs a variant containing a value of the given type.
+   * @tparam T The type of the value
+   * @param t The value
+   */
   template <typename T> requires(impl::one_of<T, Ts...>::value)
   __host__ __device__ inline gpu_variant(T t) {
     set(t);
   }
 
+  /**
+   * @brief Checks if this variant holds a value of type `T`.
+   * @tparam T The type to check
+   * @return True if this variant holds a value of type `T`, otherwise false
+   */
   template <typename T> requires(impl::one_of<T, Ts...>::value)
   __host__ __device__ constexpr bool holds() const {
     return idx == impl::fst_index_of<T, Ts...>::value;
   }
 
+  /**
+   * @brief Checks if this variant contains an invalid value.
+   * @return True if this variant holds an invalid value, otherwise false
+   */
   __host__ __device__ constexpr bool is_invalid() const {
     return idx == impl::invalid;
   }
 
+  /**
+   * @brief Stores the given value, overwriting any current value.
+   * @tparam T The type of the value to set
+   * @param t The value
+   */
   template <typename T> requires(impl::one_of<T, Ts...>::value)
   __host__ __device__ inline void set(const T &t) {
     *reinterpret_cast<T *>(data) = t;
     idx = impl::fst_index_of<T, Ts...>::value;
   }
 
+  /**
+   * @brief Gets a pointer to the contained value, cast to `T`.
+   * @tparam T The type to cast to
+   * @return A pointer to the value
+   *
+   * If this variant does not hold a value of type `T`, the result is undefined.
+   */
   template <typename T> requires(impl::one_of<T, Ts...>::value)
   __host__ __device__ inline T *get() {
     return reinterpret_cast<T *>(data);
   }
 
+  /**
+   * @brief Gets a constant pointer to the contained value, cast to `T`.
+   * @tparam T The type to cast to
+   * @return A constant pointer to the value
+   *
+   * If this variant does not hold a value of type `T`, the result is undefined.
+   */
   template <typename T> requires(impl::one_of<T, Ts...>::value)
   __host__ __device__ inline const T *get() const {
     return reinterpret_cast<const T *>(data);
@@ -189,11 +232,27 @@ struct attempt_invoke<Fun, T1> {
 };
 }
 
+/**
+ * @brief Invokes the given function on the contained value.
+ * @tparam Fun The type of the functions, should be able to accept any of the variant's types
+ * @tparam Ts The possible types of the variant
+ * @param f The function to call
+ * @param v The variant
+ * @return The result of the function call
+ */
 template <typename Fun, typename ... Ts>
 __device__ inline auto visit(Fun *f, gpu_variant<Ts...> *v) {
   return impl::attempt_invoke<Fun, Ts...>::invoke(f, v);
 }
 
+/**
+ * @brief Invokes the given function on the contained value.
+ * @tparam Fun The type of the functions, should be able to accept any of the variant's types
+ * @tparam Ts The possible types of the variant
+ * @param f The function to call
+ * @param v The variant
+ * @return The result of the function call
+ */
 template <typename Fun, typename ... Ts>
 __device__ inline auto visit(Fun *f, const gpu_variant<Ts...> *v) {
   return impl::attempt_invoke<Fun, Ts...>::invoke_const(f, v);

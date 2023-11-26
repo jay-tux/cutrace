@@ -6,6 +6,8 @@
 # -- Project information -----------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
+import textwrap
+
 project = 'cutrace'
 copyright = '2023, jay-tux'
 author = 'jay-tux'
@@ -16,7 +18,9 @@ release = '0.0.1'
 
 extensions = [
     'breathe',
-    'exhale'
+    'exhale',
+    'sphinx.ext.graphviz',
+    'sphinx.ext.mathjax'
 ]
 
 templates_path = ['_templates']
@@ -34,7 +38,13 @@ exhale_args = {
     'rootFileTitle': 'cutrace API',
     'createTreeView': True,
     'exhaleExecutesDoxygen': True,
-    'exhaleDoxygenStdin': 'INPUT = ../inc'
+    'exhaleDoxygenStdin': textwrap.dedent('''
+        INPUT      = ../inc
+        PREDEFINED += __device__=/**@device*/ __host__=/**@host*/
+        ALIASES    += host="<para><em>Host function</em><para>"
+        ALIASES    += device="<para><em>Device function</em><para>"
+        ALIASES    += global="<para><em>Global function</em><para>"
+    ''')
 }
 
 primary_domain = 'cpp'
