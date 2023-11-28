@@ -99,7 +99,7 @@ __host__ gpu::gpu_array<gpu::gpu_object> to_gpu(const std::vector<cpu_object> &c
  */
 struct sun {
   vector direction; //!< The direction of the light source
-  vector color; //!< The color of the light
+  vector color = {1,1,1}; //!< The color of the light
 
   /**
    * @brief Converts this sun (directional light) to GPU.
@@ -113,7 +113,7 @@ struct sun {
  */
 struct point_light {
   vector point; //!< The point from where the light shines
-  vector color; //!< The color of the light
+  vector color = {1,1,1}; //!< The color of the light
 
   /**
    * @brief Converts this point light to GPU.
@@ -145,10 +145,10 @@ __host__ gpu::gpu_array<gpu::gpu_light> to_gpu(const std::vector<cpu_light>& cpu
  */
 struct cpu_mat {
   vector color; //!< The base color of the material
-  float specular, //!< The specular factor for the material (how smooth/shiny it is)
-        reflexivity, //!< The reflexivity factor for the material (how much it reflects/mirrors)
-        phong_exp, //!< The Phong lighting exponent for the material
-        transparency; //!< The transparency/translucency factor for the material
+  float specular = 0.3f, //!< The specular factor for the material (how smooth/shiny it is)
+        reflexivity = 0.0f, //!< The reflexivity factor for the material (how much it reflects/mirrors)
+        phong_exp = 32, //!< The Phong lighting exponent for the material
+        transparency = 0.0f; //!< The transparency/translucency factor for the material
 
   /**
    * @brief Converts this material to GPU.

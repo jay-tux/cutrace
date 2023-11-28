@@ -325,14 +325,14 @@ struct gpu_mat {
  * @brief Struct representing a camera
  */
 struct cam {
-  vector pos; //!< Eye position of the camera
-  vector up; //!< Up direction for the camera
-  vector forward; //!< Forward direction for the camera (look-at)
-  vector right; //!< Right direction for the camera
-  float near, //!< Distance to the near plane (unused)
-        far; //!< Distance to the far plane (unused)
-  size_t w, //!< The width of the image to be rendered
-         h; //!< The height of the image to be rendered
+  vector pos = { 0.0f, 0.0f, 0.0f }; //!< Eye position of the camera
+  vector up = { 0.0f, 1.0f, 0.0f }; //!< Up direction for the camera
+  vector forward = { 0.0f, 0.0f, 1.0f }; //!< Forward direction for the camera (look-at)
+  vector right = { 1.0f, 0.0f, 0.0f }; //!< Right direction for the camera
+  float near = 0.1f, //!< Distance to the near plane (unused)
+        far = 100.0f; //!< Distance to the far plane (unused)
+  size_t w = 1920, //!< The width of the image to be rendered
+         h = 1080; //!< The height of the image to be rendered
 
   /**
    * @brief Computes all directions, given a point to look at.
