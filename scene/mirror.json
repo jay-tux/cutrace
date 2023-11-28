@@ -17,7 +17,7 @@
     {
       "type": "point",
       "color": [0.35,0.3,0.35],
-      "position": [  0,0.5,-0.5]
+      "position": [0,0.5,-0.5]
     }
   ],
 
@@ -26,36 +26,31 @@
       "color": [0.95, 0.95, 0.95],
       "specular": 0.3,
       "reflect": 0.05,
-      "phong": 200,
-      "transparency": 0
+      "phong": 200
     },
     {
       "color": [0.1,0.1,0.1],
       "specular": 0.1,
       "reflect": 0.0,
-      "phong": 200,
-      "transparency": 0
+      "phong": 200
     },
     {
       "color": [0.3,0.25,0.2],
       "specular": 0.1,
       "reflect": 0.0,
-      "phong": 200,
-      "transparency": 0
+      "phong": 200
     },
     {
       "color": [0.1,0.1,0.1],
       "specular": 0.1,
       "reflect": 0.999,
-      "phong": 1000,
-      "transparency": 0
+      "phong": 1000
     },
     {
       "color": [0.95, 0.95, 0.9],
       "specular": 0.8,
       "reflect": 0.00,
-      "phong": 200,
-      "transparency": 0
+      "phong": 200
     }
   ],
 

@@ -15,13 +15,18 @@ using namespace cutrace::cpu;
 using array = picojson::value::array;
 using object = picojson::value::object;
 
+#define STRINGIZE(x) STRINGIZE2(x)
+#define STRINGIZE2(x) #x
+#define LINE_STR STRINGIZE(__LINE__)
+#define LINE_END " (at " __FILE__ ":" LINE_STR ").\n"
+
 template <typename T, typename Fun>
 inline void with(const picojson::value &val, Fun &&f) {
   if(val.is<T>()) {
     f(val.get<T>());
   }
   else {
-    std::cerr << "Expected a " << typeid(T).name() << ", got " << val.serialize() << "\n";
+    std::cerr << "Expected a " << typeid(T).name() << ", got " << val.serialize() << LINE_END;
   }
 }
 
@@ -29,15 +34,19 @@ template <typename T, typename Fun> requires(std::invocable<Fun, const T &>)
 inline void withKey(const picojson::value &val, const char *key, Fun &&f, bool warn_missing = true) {
   if(val.is<object>()) {
     auto it = val.get<object>().find(key);
-    if(it != val.get<object>().end() && it->second.is<T>()) {
+    if (it != val.get<object>().end() && it->second.is<T>()) {
       f(it->second.get<T>());
-    } else if(it == val.get<object>().end() && warn_missing) {
-      std::cerr << "Key '" << key << "' does not exist.\n";
-    } else {
-      std::cerr << "Expected a " << typeid(T).name() << ", got " << it->second.serialize() << "\n";
+    }
+    else if (warn_missing) {
+      if (it == val.get<object>().end()) {
+        std::cerr << "Key '" << key << "' does not exist" LINE_END;
+      }
+      else {
+        std::cerr << "Expected a " << typeid(T).name() << ", got " << it->second.serialize() << LINE_END;
+      }
     }
   } else {
-    std::cerr << "Expected an object, got " << val.serialize() << "\n";
+    std::cerr << "Expected an object, got " << val.serialize() << LINE_END;
   }
 }
 
@@ -47,13 +56,16 @@ inline void withKey(const picojson::value &val, const char *key, Fun &&f, bool w
     auto it = val.get<object>().find(key);
     if(it != val.get<object>().end() && it->second.is<T>()) {
       f(it->second.get<T>(), val.get<object>());
-    } else if(it == val.get<object>().end() && warn_missing) {
-      std::cerr << "Key '" << key << "' does not exist.\n";
-    } else {
-      std::cerr << "Expected a " << typeid(T).name() << ", got " << it->second.serialize() << "\n";
+    }
+    else if(warn_missing) {
+      if (it == val.get<object>().end()) {
+        std::cerr << "Key '" << key << "' does not exist" LINE_END;
+      } else {
+        std::cerr << "Expected a " << typeid(T).name() << ", got " << it->second.serialize() << LINE_END;
+      }
     }
   } else {
-    std::cerr << "Expected an object, got " << val.serialize() << "\n";
+    std::cerr << "Expected an object, got " << val.serialize() << LINE_END;
   }
 }
 
@@ -62,10 +74,13 @@ inline void withKey(const object &o, const char *key, Fun &&f, bool warn_missing
   auto it = o.find(key);
   if(it != o.end() && it->second.is<T>()) {
     f(it->second.get<T>());
-  } else if(it == o.end() && warn_missing) {
-    std::cerr << "Key '" << key << "' does not exist.\n";
-  } else {
-    std::cerr << "Expected a " << typeid(T).name() << ", got " << it->second.serialize() << "\n";
+  }
+  else if(warn_missing) {
+    if (it == o.end()) {
+      std::cerr << "Key '" << key << "' does not exist" LINE_END;
+    } else {
+      std::cerr << "Expected a " << typeid(T).name() << ", got " << it->second.serialize() << LINE_END;
+    }
   }
 }
 
