@@ -31,6 +31,7 @@ struct json_type_names {
   constexpr const static char s_double[] = "double";
   constexpr const static char s_array[] = "array";
   constexpr const static char s_string[] = "string";
+  constexpr const static char s_object[] = "object";
 };
 
 template <typename T> struct json_type;
@@ -45,6 +46,7 @@ template <> struct json_type<double> : name_type<json_type_names::s_double, doub
 template <> struct json_type<picojson::array> : name_type<json_type_names::s_array, picojson::array> {};
 template <> struct json_type<cpu::vector> : name_type<json_type_names::s_array, picojson::array> {};
 template <> struct json_type<std::string> : name_type<json_type_names::s_string, std::string> {};
+template <> struct json_type<picojson::object> : name_type<json_type_names::s_object, picojson::object> {};
 
 template <typename T> using json_either = either<json_error, T>;
 

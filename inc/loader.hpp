@@ -282,22 +282,41 @@ struct all_materials_schema {
 
 //endregion
 
-template <typename O, typename L, typename M> struct full_schema;
+//region camera schema
+template <typename C, typename ... Ts> struct cam_schema;
 
-template <typename ... Os, typename ... Ls, typename ... Ms>
-struct full_schema<all_objects_schema<Os...>, all_lights_schema<Ls...>, all_materials_schema<Ms...>> {
+template <typename C, const char *... names, typename ... Ts, typename ... Ds>
+requires constructible_from_args<C, loader_argument<names, Ts, Ds>...>
+struct cam_schema<C, loader_argument<names, Ts, Ds>...> {
+  using cam_t = C;
+
+  static inline or_error<C> load_from(const picojson::object &o) {
+    return fmap_all([](const auto &... args) -> C {
+      return C(args...);
+    }, loader_argument<names, Ts, Ds>::load_from(o)...);
+  }
+};
+//endregion
+
+template <typename O, typename L, typename M, typename C> struct full_schema;
+
+template <typename ... Os, typename ... Ls, typename ... Ms, typename C, const char *...c_names, typename ... CTypes, typename ... CDs>
+struct full_schema<all_objects_schema<Os...>, all_lights_schema<Ls...>, all_materials_schema<Ms...>, cam_schema<C, loader_argument<c_names, CTypes, CDs>...>> {
   using object_schema = all_objects_schema<Os...>;
   using light_schema = all_lights_schema<Ls...>;
   using material_schema = all_materials_schema<Ms...>;
+  using camera_schema = cam_schema<C, loader_argument<c_names, CTypes, CDs>...>;
   using object_t = object_schema::any;
   using light_t = light_schema::any;
   using material_t = material_schema::any;
-  using scene_t = cpu::cpu_scene_<object_t, light_t, material_t>;
+  using cam_t = C;
+  using scene_t = cpu::cpu_scene_<object_t, light_t, material_t, cam_t>;
 
   static inline scene_t load_from(const picojson::object &o) {
     std::vector<object_t> objects{};
     std::vector<light_t> lights{};
     std::vector<material_t> materials{};
+    cam_t camera{};
 
     coerce_key<picojson::array>(o, "objects").map([&objects](const picojson::array &objs) {
       objects.reserve(objs.size());
@@ -311,7 +330,7 @@ struct full_schema<all_objects_schema<Os...>, all_lights_schema<Ls...>, all_mate
         });
       }
     }).map_left([](const json_error &err) {
-      std::cerr << "Could not find 'objects' array.\n";
+      std::cerr << "Could not find 'objects' array: " << err.message << ".\n";
     });
 
     coerce_key<picojson::array>(o, "lights").map([&lights](const picojson::array &objs) {
@@ -326,7 +345,7 @@ struct full_schema<all_objects_schema<Os...>, all_lights_schema<Ls...>, all_mate
         });
       }
     }).map_left([](const json_error &err) {
-      std::cerr << "Could not find 'lights' array.\n";
+      std::cerr << "Could not find 'lights' array: " << err.message << ".\n";
     });
 
     coerce_key<picojson::array>(o, "materials").map([&materials](const picojson::array &objs) {
@@ -341,7 +360,15 @@ struct full_schema<all_objects_schema<Os...>, all_lights_schema<Ls...>, all_mate
         });
       }
     }).map_left([](const json_error &err) {
-      std::cerr << "Could not find 'materials' array.\n";
+      std::cerr << "Could not find 'materials' array: " << err.message << ".\n";
+    });
+
+    coerce_key<picojson::object>(o, "camera").map([&camera](const picojson::object *obj) {
+      camera_schema::load_from(*obj).map([&camera](const auto &c) {
+        camera = c;
+      });
+    }).map_left([](const json_error &err) {
+      std::cerr << "Could not find 'camera' object: " << err.message << ".\n";
     });
 
     return scene_t {

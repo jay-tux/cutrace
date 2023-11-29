@@ -11,13 +11,36 @@
 
 namespace cutrace::cpu::schema {
 namespace defaults {
+struct black {
+  constexpr const static vector value{0.0f, 0.0f, 0.0f};
+};
+
+struct up {
+  constexpr const static vector value{0.0f, 1.0f, 0.0f};
+};
+
+struct forward {
+  constexpr const static vector value{0.0f, 0.0f, 1.0f};
+};
+
+struct right {
+  constexpr const static vector value{1.0f, 0.0f, 0.0f};
+};
+
 struct white {
   constexpr const static vector value{1.0f, 1.0f, 1.0f};
 };
 
-struct zero { constexpr const static float value = 0.0f; };
-struct point_three { constexpr const static float value = 0.3f; };
-struct thirty_two { constexpr const static float value = 32.0f; };
+#define DEFAULT_FLOAT(name, init) struct name { constexpr const static float value = init; }
+DEFAULT_FLOAT(zero, 0.0f);
+DEFAULT_FLOAT(point_one, 0.1f);
+DEFAULT_FLOAT(point_three, 0.3f);
+DEFAULT_FLOAT(thirty_two, 32.0f);
+DEFAULT_FLOAT(one_hundred, 100.0f);
+#undef DEFAULT_FLOAT
+
+struct default_width : std::integral_constant<size_t, 1920> {};
+struct default_height : std::integral_constant<size_t, 1080> {};
 }
 
 #define ARGUMENT(name, type) loader_argument<name, type, mandatory>
@@ -158,7 +181,39 @@ struct solid_material {
 
 using default_material_schema = all_materials_schema<solid_material::schema>;
 
-using default_schema = full_schema<default_objects_schema, default_lights_schema, default_material_schema>;
+struct default_cam {
+  vector pos = defaults::black::value;
+  vector up = defaults::up::value;
+  vector look = defaults::forward::value;
+  float near = defaults::point_one::value;
+  float far = defaults::one_hundred::value;
+  size_t w = defaults::default_width::value;
+  size_t h = defaults::default_height::value;
+
+  constexpr default_cam() = default;
+  constexpr default_cam(vector e, vector u, vector l, float n, float f, size_t w, size_t h)
+    : pos{e}, up{u}, look{l}, near{n}, far{f}, w{w}, h{h} {}
+
+  constexpr const static char arg_pos[] = "eye";
+  constexpr const static char arg_up[] = "up";
+  constexpr const static char arg_look[] = "look";
+  constexpr const static char arg_near[] = "near_plane";
+  constexpr const static char arg_far[] = "far_plane";
+  constexpr const static char arg_w[] = "width";
+  constexpr const static char arg_h[] = "height";
+
+  using schema = cam_schema<default_cam,
+    OPTIONAL(arg_pos, vector, defaults::black),
+    OPTIONAL(arg_up, vector, defaults::up),
+    OPTIONAL(arg_look, vector, defaults::forward),
+    OPTIONAL(arg_near, float, defaults::point_one),
+    OPTIONAL(arg_far, float, defaults::one_hundred),
+    OPTIONAL(arg_w, size_t, defaults::default_width),
+    OPTIONAL(arg_h, size_t, defaults::default_height)
+  >;
+};
+
+using default_schema = full_schema<default_objects_schema, default_lights_schema, default_material_schema, default_cam::schema>;
 }
 
 #endif //CUTRACE_DEFAULT_SCHEMA_HPP
