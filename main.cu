@@ -5,12 +5,15 @@
 #include "images.hpp"
 #include "kernel_prepare.hpp"
 
+#include "default_schema.hpp"
+
 int main(int argc, const char **argv) {
   if(argc < 2) {
     std::cerr << "Usage: " << argv[0] << " <scene file>\n";
     return -1;
   }
 
+  auto template_scene = cutrace::cpu::schema::default_schema::load_file(argv[1]);
   auto scene = cutrace::loader::load(argv[1]);
   const auto &cam = scene.camera;
 
