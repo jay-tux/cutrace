@@ -363,8 +363,8 @@ struct full_schema<all_objects_schema<Os...>, all_lights_schema<Ls...>, all_mate
       std::cerr << "Could not find 'materials' array: " << err.message << ".\n";
     });
 
-    coerce_key<picojson::object>(o, "camera").map([&camera](const picojson::object *obj) {
-      camera_schema::load_from(*obj).map([&camera](const auto &c) {
+    coerce_key<picojson::object>(o, "camera").map([&camera](const picojson::object &obj) {
+      camera_schema::load_from(obj).map([&camera](const auto &c) {
         camera = c;
       });
     }).map_left([](const json_error &err) {

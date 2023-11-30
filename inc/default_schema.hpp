@@ -214,6 +214,10 @@ struct default_cam {
 };
 
 using default_schema = full_schema<default_objects_schema, default_lights_schema, default_material_schema, default_cam::schema>;
+
+inline default_schema::scene_t load_default(const std::string &file) {
+  return default_schema::load_file(file);
+}
 }
 
 #endif //CUTRACE_DEFAULT_SCHEMA_HPP
