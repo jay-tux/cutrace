@@ -11,18 +11,6 @@ __device__ constexpr bool is_valid(float min, float v) {
   return isfinite(v) && min <= v;
 }
 
-struct matrix {
-  vector columns[3];
-
-  __device__ float determinant() {
-    float a = columns[0].x, b = columns[1].x, c = columns[2].x,
-          d = columns[0].y, e = columns[1].y, f = columns[2].y,
-          g = columns[0].z, h = columns[1].z, i = columns[2].z;
-
-    return a*e*i + b*f*g + c*d*h - c*e*g - a*f*h - b*d*i;
-  }
-};
-
 __device__ bool triangle::intersect(const ray *r, float min_t, vector *hit, float *dist, vector *normal) const {
   auto a = p2 - p1;
   auto b = p2 - p3;
@@ -98,8 +86,8 @@ __device__ bool plane::intersect(const ray *r, float min_t, vector *hit, float *
   return false;
 }
 
-__device__ bool sphere::intersect(const cutrace::gpu::ray *r, float min_t, cutrace::gpu::vector *hit, float *dist,
-                                  cutrace::gpu::vector *normal) const {
+__device__ bool sphere::intersect(const cutrace::gpu::ray *r, float min_t, cutrace::vector *hit, float *dist,
+                                  cutrace::vector *normal) const {
   auto d = r->dir.normalized();
   auto c = center;
   auto e = r->start;
@@ -127,12 +115,12 @@ __device__ bool sphere::intersect(const cutrace::gpu::ray *r, float min_t, cutra
   return true;
 }
 
-__device__ void sun::direction_to(const cutrace::gpu::vector *, cutrace::gpu::vector *d, float *distance) const {
+__device__ void sun::direction_to(const cutrace::vector *, cutrace::vector *d, float *distance) const {
   *d = -1.0f * direction;
   *distance = INFINITY;
 }
 
-__device__ void point_light::direction_to(const cutrace::gpu::vector *p, cutrace::gpu::vector *direction,
+__device__ void point_light::direction_to(const cutrace::vector *p, cutrace::vector *direction,
                                           float *distance) const {
   *direction = (point - *p).normalized();
   *distance = (point - *p).norm();

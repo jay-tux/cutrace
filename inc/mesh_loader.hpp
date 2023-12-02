@@ -9,6 +9,7 @@
 #include <vector>
 #include "cpu_types.hpp"
 
+
 /**
  * @brief Main namespace for CPU-related code.
  */
@@ -24,7 +25,7 @@ namespace cutrace::cpu {
  *
  * @see cutrace::loader::load
  */
-std::vector<triangle_set> load_mesh(const std::string &file, size_t mat_idx);
+std::vector<triangle_set> load_meshes(const std::string &file, size_t mat_idx);
 }
 
 #endif //CUTRACE_MESH_LOADER_HPP

@@ -31,7 +31,7 @@ inline triangle load_tri(const aiMesh *mesh, uint *idx) {
   };
 }
 
-std::vector<triangle_set> cpu::load_mesh(const std::string &file, size_t mat_idx) {
+std::vector<triangle_set> cpu::load_meshes(const std::string &file, size_t mat_idx) {
   // Create an instance of the Importer class
   Assimp::Importer importer;
 

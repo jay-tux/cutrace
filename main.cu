@@ -6,6 +6,7 @@
 #include "kernel_prepare.hpp"
 
 #include "default_schema.hpp"
+#include "cpu_to_gpu.hpp"
 
 int main(int argc, const char **argv) {
   if(argc < 2) {
@@ -14,6 +15,7 @@ int main(int argc, const char **argv) {
   }
 
   auto template_scene = cutrace::cpu::schema::default_schema::load_file(argv[1]);
+  auto gpu_template_scene = cutrace::cpu::schema::default_to_gpu(template_scene);
   auto scene = cutrace::loader::load(argv[1]);
   const auto &cam = scene.camera;
 
@@ -28,8 +30,8 @@ int main(int argc, const char **argv) {
 
   float max_d;
   cutrace::gpu::grid<float> depth_map;
-  cutrace::gpu::grid<cutrace::gpu::vector> color_map;
-  cutrace::gpu::grid<cutrace::gpu::vector> normal_map;
+  cutrace::gpu::grid<cutrace::vector> color_map;
+  cutrace::gpu::grid<cutrace::vector> normal_map;
   cutrace::gpu::render(scene.camera, gpu_scene, max_d, depth_map, color_map, normal_map);
   cutrace::write_depth_map("./depth_map.jpg", depth_map, max_d);
   cutrace::write_normal_map("./normal_map.jpg", normal_map);

@@ -25,13 +25,13 @@ void write_depth_map(const std::string &file, const gpu::grid<float> &depth_map,
  * @param file The name of the file to write to
  * @param normal_map The normal map data
  */
-void write_normal_map(const std::string &file, const gpu::grid<gpu::vector> &normal_map);
+void write_normal_map(const std::string &file, const gpu::grid<vector> &normal_map);
 /**
  * @brief Writes a frame to a JPG image (3 colors).
  * @param file The name of the file to write to
  * @param colorized The pixel colors
  */
-void write_colorized(const std::string &file, const gpu::grid<gpu::vector> &colorized);
+void write_colorized(const std::string &file, const gpu::grid<vector> &colorized);
 }
 
 #endif //CUTRACE_IMAGES_HPP

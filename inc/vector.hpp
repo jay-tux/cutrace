@@ -5,14 +5,12 @@
 #ifndef CUTRACE_VECTOR_HPP
 #define CUTRACE_VECTOR_HPP
 
+#include <cmath>
+
 /**
  * @brief Namespace containing all of cutrace’s code.
  */
 namespace cutrace {
-/**
- * @brief Main namespace for GPU-related code.
- */
-namespace gpu {
 /**
  * @brief Struct representing a 3D-vector on GPU (point, direction, or color).
  */
@@ -32,6 +30,10 @@ struct vector {
     return i == 0 ? x : i == 1 ? y : z;
   }
 
+  [[nodiscard]] constexpr inline vector to_gpu() const {
+    return *this;
+  }
+
   /**
    * @brief Computes the cross product with another vector.
    * @param [in] other The other vector for the cross product
@@ -39,9 +41,9 @@ struct vector {
    */
   [[nodiscard]] constexpr __host__ __device__ vector cross(const vector &other) const {
     return {
-      y * other.z - z * other.y,
-      z * other.x - x * other.z,
-      x * other.y - y * other.x
+            y * other.z - z * other.y,
+            z * other.x - x * other.z,
+            x * other.y - y * other.x
     };
   }
 
@@ -58,7 +60,12 @@ struct vector {
    * @return \f$||\star this||\f$
    */
   [[nodiscard]] constexpr __host__ __device__ float norm() const {
+#ifdef __CUDA_ARCH__
     return sqrt(x * x + y * y + z * z);
+#else
+//    return std::sqrtf(x * x + y * y + z * z);
+    return sqrtf(x * x + y * y + z * z);
+#endif
   }
 
   /**
@@ -67,7 +74,7 @@ struct vector {
    * @return \f$(\star this) + v2\f$
    */
   __host__ __device__ constexpr vector operator+(const vector &v2) const {
-    return {x+v2.x, y+v2.y, z+v2.z};
+    return {x + v2.x, y + v2.y, z + v2.z};
   }
 
   /**
@@ -76,7 +83,7 @@ struct vector {
    * @return \f$(\star this) - v2\f$
    */
   __host__ __device__ constexpr vector operator-(const vector &v2) const {
-    return {x-v2.x, y-v2.y, z-v2.z};
+    return {x - v2.x, y - v2.y, z - v2.z};
   }
 
   /**
@@ -85,7 +92,7 @@ struct vector {
    * @return \f$f * (\star this)\f$
    */
   __host__ __device__ constexpr vector operator*(float f) const {
-    return {f*x, f*y, f*z};
+    return {f * x, f * y, f * z};
   }
 
   /**
@@ -103,7 +110,7 @@ struct vector {
    * @return \f$\begin{pmatrix}this\to x * other.x \\ this\to y * other.y \\ this\to z * other.z \end{pmatrix}\f$
    */
   __host__ __device__ constexpr vector operator*(const vector &other) const {
-    return { x * other.x, y * other.y, z * other.z };
+    return {x * other.x, y * other.y, z * other.z};
   }
 
   /**
@@ -142,6 +149,13 @@ struct bound {
 
     return *this;
   }
+
+  __host__ __device__ constexpr static bound incorrect() {
+    return {
+            { INFINITY, INFINITY, INFINITY },
+            { -INFINITY, -INFINITY, -INFINITY }
+    };
+  }
 };
 
 /**
@@ -163,29 +177,18 @@ __host__ __device__ constexpr vector operator*(float f, const vector &v) {
 __host__ __device__ constexpr vector reflect(const vector &incoming, const vector &normal) {
   return incoming - 2.0f * (normal.dot(incoming)) * normal;
 }
-}
 
-/**
- * @brief Main namespace for CPU-related code.
- */
-namespace cpu {
-/**
- * @brief Struct representing a 3D-vector on CPU.
- */
-struct vector {
-  float x; //!< The X-coordinate
-  float y; //!< The Y-coordinate
-  float z; //!< The Z-coordinate
+struct matrix {
+  vector columns[3];
 
-  /**
-   * Converts this CPU-vector to a GPU-vector.
-   * @return The GPU-vector
-   */
-  [[nodiscard]] __host__ constexpr gpu::vector to_gpu() const noexcept {
-    return { .x = x, .y = y, .z = z };
+  __device__ constexpr float determinant() {
+    float a = columns[0].x, b = columns[1].x, c = columns[2].x,
+            d = columns[0].y, e = columns[1].y, f = columns[2].y,
+            g = columns[0].z, h = columns[1].z, i = columns[2].z;
+
+    return a*e*i + b*f*g + c*d*h - c*e*g - a*f*h - b*d*i;
   }
 };
-}
 }
 
 #endif //CUTRACE_VECTOR_HPP

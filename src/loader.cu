@@ -84,8 +84,8 @@ inline void withKey(const object &o, const char *key, Fun &&f, bool warn_missing
   }
 }
 
-inline cpu::vector parse_vec(const picojson::value &o) {
-  cpu::vector res{0,0,0};
+inline vector parse_vec(const picojson::value &o) {
+  vector res{0,0,0};
   with<array>(o, [&res](const array &a) {
     if(a.size() >= 3) {
       with<double>(a[0], [&res](const double &d){ res.x = (float)d; });
@@ -96,8 +96,8 @@ inline cpu::vector parse_vec(const picojson::value &o) {
   return res;
 }
 
-inline cpu::vector parse_vec(const array &a) {
-  cpu::vector res{0,0,0};
+inline vector parse_vec(const array &a) {
+  vector res{0,0,0};
   with<double>(a[0], [&res](const double &d){ res.x = (float)d; });
   with<double>(a[1], [&res](const double &d){ res.y = (float)d; });
   with<double>(a[2], [&res](const double &d){ res.z = (float)d; });
@@ -162,7 +162,7 @@ cpu::cpu_scene loader::load(const std::string &file) {
           }
           else if (type == "model") {
             withKey<std::string>(o, "file", [&objects, &mat_idx](const std::string &fname) {
-              auto loaded = load_mesh(fname, mat_idx);
+              auto loaded = load_meshes(fname, mat_idx);
               objects.insert(objects.end(), loaded.begin(), loaded.end());
             });
           }

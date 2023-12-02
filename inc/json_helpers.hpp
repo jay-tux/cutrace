@@ -44,7 +44,7 @@ template <> struct json_type<size_t> : name_type<json_type_names::s_size_t, doub
 template <> struct json_type<float> : name_type<json_type_names::s_float, double> {};
 template <> struct json_type<double> : name_type<json_type_names::s_double, double> {};
 template <> struct json_type<picojson::array> : name_type<json_type_names::s_array, picojson::array> {};
-template <> struct json_type<cpu::vector> : name_type<json_type_names::s_array, picojson::array> {};
+template <> struct json_type<vector> : name_type<json_type_names::s_array, picojson::array> {};
 template <> struct json_type<std::string> : name_type<json_type_names::s_string, std::string> {};
 template <> struct json_type<picojson::object> : name_type<json_type_names::s_object, picojson::object> {};
 

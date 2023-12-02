@@ -56,19 +56,19 @@ struct loader_argument<name, T, D> {
 };
 
 template <const char *name>
-struct loader_argument<name, cpu::vector, mandatory> {
-  using type = cpu::vector;
+struct loader_argument<name, vector, mandatory> {
+  using type = vector;
   using json_t = picojson::array;
   constexpr const static bool is_required = false;
 
-  static inline or_error<cpu::vector> load_from(const picojson::object &o) {
-    return coerce_key<json_t>(o, name).fmap([](const json_t &arr) -> or_error<cpu::vector> {
+  static inline or_error<vector> load_from(const picojson::object &o) {
+    return coerce_key<json_t>(o, name).fmap([](const json_t &arr) -> or_error<vector> {
       if(arr.size() != 3) return {json_error{"Expected a 3-value array, got " + std::to_string(arr.size()) + " instead."} };
 
       return coerce<float>(arr[0]).fmap([&arr](const float &x) {
         return coerce<float>(arr[1]).fmap([&arr, x](const float &y) {
-          return coerce<float>(arr[1]).fmap([x, y](const float &z) -> or_error<cpu::vector> {
-            return { cpu::vector{ x, y, z } };
+          return coerce<float>(arr[1]).fmap([x, y](const float &z) -> or_error<vector> {
+            return { vector{ x, y, z } };
           });
         });
       });
@@ -76,25 +76,25 @@ struct loader_argument<name, cpu::vector, mandatory> {
   }
 };
 
-template <const char *name, typename D> requires(compile_time_T<D, cpu::vector>)
-struct loader_argument<name, cpu::vector, D> {
-  using type = cpu::vector;
+template <const char *name, typename D> requires(compile_time_T<D, vector>)
+struct loader_argument<name, vector, D> {
+  using type = vector;
   using json_t = picojson::array;
   constexpr const static bool is_required = false;
-  constexpr const static cpu::vector default_v = D::value;
+  constexpr const static vector default_v = D::value;
 
-  static inline or_error<cpu::vector> load_from(const picojson::object &o) {
+  static inline or_error<vector> load_from(const picojson::object &o) {
     auto d = picojson::array{
       {picojson::value(default_v.x), picojson::value(default_v.y), picojson::value(default_v.z)}
     };
 
-    return coerce_key(o, name, d).fmap([](const json_t &arr) -> or_error<cpu::vector> {
+    return coerce_key(o, name, d).fmap([](const json_t &arr) -> or_error<vector> {
       if(arr.size() != 3) return {json_error{"Expected a 3-value array, got " + std::to_string(arr.size()) + " instead."} };
 
       return coerce<float>(arr[0]).fmap([&arr](const float &x) {
         return coerce<float>(arr[1]).fmap([&arr, x](const float &y) {
-          return coerce<float>(arr[1]).fmap([x, y](const float &z) -> or_error<cpu::vector> {
-            return { cpu::vector{ x, y, z } };
+          return coerce<float>(arr[1]).fmap([x, y](const float &z) -> or_error<vector> {
+            return { vector{ x, y, z } };
           });
         });
       });
@@ -283,6 +283,7 @@ struct all_materials_schema {
 //endregion
 
 //region camera schema
+
 template <typename C, typename ... Ts> struct cam_schema;
 
 template <typename C, const char *... names, typename ... Ts, typename ... Ds>
@@ -321,7 +322,7 @@ struct full_schema<all_objects_schema<Os...>, all_lights_schema<Ls...>, all_mate
     coerce_key<picojson::array>(o, "objects").map([&objects](const picojson::array &objs) {
       objects.reserve(objs.size());
       for(size_t i = 0; i < objs.size(); i++) {
-        force_object(objs[i]).map([i, &objects](const auto *v) {
+        force_object(objs[i]).map([&objects](const auto *v) {
           object_schema::load_from(*v).map([&objects](const auto &obj) {
             objects.push_back(obj);
           });
@@ -336,7 +337,7 @@ struct full_schema<all_objects_schema<Os...>, all_lights_schema<Ls...>, all_mate
     coerce_key<picojson::array>(o, "lights").map([&lights](const picojson::array &objs) {
       lights.reserve(objs.size());
       for(size_t i = 0; i < objs.size(); i++) {
-        force_object(objs[i]).map([i, &lights](const auto *v) {
+        force_object(objs[i]).map([&lights](const auto *v) {
           light_schema::load_from(*v).map([&lights](const auto &light) {
             lights.push_back(light);
           });
@@ -351,7 +352,7 @@ struct full_schema<all_objects_schema<Os...>, all_lights_schema<Ls...>, all_mate
     coerce_key<picojson::array>(o, "materials").map([&materials](const picojson::array &objs) {
       materials.reserve(objs.size());
       for(size_t i = 0; i < objs.size(); i++) {
-        force_object(objs[i]).map([i, &materials](const auto *v) {
+        force_object(objs[i]).map([&materials](const auto *v) {
           material_schema::load_from(*v).map([&materials](const auto &material) {
             materials.push_back(material);
           });

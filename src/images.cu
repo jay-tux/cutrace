@@ -53,7 +53,7 @@ void cutrace::write_depth_map(const std::string &file, const gpu::grid<float> &d
   delete [] data;
 }
 
-void cutrace::write_colorized(const std::string &file, const gpu::grid<gpu::vector> &color_map) {
+void cutrace::write_colorized(const std::string &file, const gpu::grid<vector> &color_map) {
   byte *data = new byte[3 * color_map.size() * color_map[0].size()];
   for(size_t row = 0; row < color_map.size(); row++) {
     for(size_t col = 0; col < color_map[0].size(); col++) {
@@ -68,7 +68,7 @@ void cutrace::write_colorized(const std::string &file, const gpu::grid<gpu::vect
   delete [] data;
 }
 
-void cutrace::write_normal_map(const std::string &file, const gpu::grid<gpu::vector> &normal_map) {
+void cutrace::write_normal_map(const std::string &file, const gpu::grid<vector> &normal_map) {
   byte *data = new byte[3 * normal_map.size() * normal_map[0].size()];
   for(size_t row = 0; row < normal_map.size(); row++) {
     for(size_t col = 0; col < normal_map[0].size(); col++) {
