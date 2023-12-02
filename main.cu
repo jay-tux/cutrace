@@ -7,6 +7,7 @@
 
 #include "default_schema.hpp"
 #include "cpu_to_gpu.hpp"
+#include "kernel.hpp"
 
 int main(int argc, const char **argv) {
   if(argc < 2) {

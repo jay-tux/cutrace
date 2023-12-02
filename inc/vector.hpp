@@ -11,6 +11,11 @@
  * @brief Namespace containing all of cutrace’s code.
  */
 namespace cutrace {
+struct uv {
+  float u;
+  float v;
+};
+
 /**
  * @brief Struct representing a 3D-vector on GPU (point, direction, or color).
  */
@@ -27,6 +32,10 @@ struct vector {
    * X corresponds to index 0, Y to index 1, Z to index 2. Any other index is undefined behavior (but will result in Z).
    */
   constexpr __host__ __device__ float operator[](int i) const {
+    return i == 0 ? x : i == 1 ? y : z;
+  }
+
+  constexpr __host__ __device__ float &operator[](int i) {
     return i == 0 ? x : i == 1 ? y : z;
   }
 
@@ -187,6 +196,38 @@ struct matrix {
             g = columns[0].z, h = columns[1].z, i = columns[2].z;
 
     return a*e*i + b*f*g + c*d*h - c*e*g - a*f*h - b*d*i;
+  }
+
+  __device__ constexpr vector &operator[](size_t i) { return columns[i]; }
+  __device__ constexpr const vector &operator[](size_t i) const { return columns[i]; }
+
+  __device__ constexpr matrix operator*(const matrix &b) const {
+    const matrix &a = *this;
+    matrix res{};
+
+    for(int i = 0; i < 3; i++) {
+      for(int j = 0; j < 3; j++) {
+        res[i][j] = 0.0f;
+        for(int k = 0; k < 3; k++) {
+          res[i][j] += a[k][j] * b[i][k];
+        }
+      }
+    }
+
+    return res;
+  }
+
+  __device__ constexpr vector operator*(const vector &v) const {
+    const matrix &a = *this;
+    vector res{};
+    for(int i = 0; i < 3; i++) {
+      res[i] = 0.0f;
+      for(int j = 0; j < 3; j++) {
+        res[i] += a[i][j] * v[j];
+      }
+    }
+
+    return res;
   }
 };
 }

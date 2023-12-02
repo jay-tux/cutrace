@@ -33,8 +33,8 @@ __device__ bool cast_ray(
 /**
  * @brief Type alias for a grid of an arbitrary type (an `std::vector` of `std::vector`).
  */
-template <typename T>
-using grid = std::vector<std::vector<T>>;
+//template <typename T>
+//using grid = std::vector<std::vector<T>>;
 
 /**
  * @brief Renders a single frame, with depth and normal maps

@@ -13,6 +13,7 @@
 #include "assimp/Importer.hpp"
 #include "assimp/scene.h"
 #include "assimp/postprocess.h"
+#include "ray_cast.hpp"
 
 namespace cutrace::gpu::schema {
 /**
@@ -24,6 +25,17 @@ struct triangle {
          p3; //!< The third point of the triangle
   size_t mat_idx; //!< The index of the material to render the triangle with
 
+  __device__ constexpr uv uv_for(const vector *point) const {
+    vector p2p1 = p2 - p1, p3p1 = p3 - p1, xp1 = *point - p1;
+    vector proj_u = xp1.dot(p2p1) / p2p1.dot(p2p1) * p2p1,
+           proj_v = xp1.dot(p3p1) / p3p1.dot(p3p1) * p3p1;
+
+    return {
+      .u = proj_u.norm() / p2p1.norm(),
+      .v = proj_v.norm() / p3p1.norm()
+    };
+  }
+
   /**
    * @brief Function to check if a ray intersects this triangle.
    * @param[in] r The ray
@@ -33,7 +45,7 @@ struct triangle {
    * @param[out] normal The normal at the point of the hit, if any
    * @return True if there's an intersection, otherwise false.
    */
-  __device__ constexpr bool intersect(const ray *r, float min_t, vector *hit, float *dist, vector *normal) const {
+  __device__ constexpr bool intersect(const ray *r, float min_t, vector *hit, float *dist, vector *normal, uv *tex_coords) const {
     auto a = p1 - p2, b = p2 - p3,
          c = r->dir, d =p2 - r->start;
 
@@ -49,11 +61,14 @@ struct triangle {
       *dist = t0;
       *hit = r->start + *dist * r->dir;
       *normal = -1.0f * (p2 - p3).cross(p1 - p3).normalized();
+      *tex_coords = uv_for(hit);
       return true;
     }
 
     return false;
   }
+
+  __host__ inline void gpu_clean() {}
 };
 
 /**
@@ -90,22 +105,31 @@ struct mesh {
    * @param[out] normal The normal at the point of the hit, if any
    * @return True if there's an intersection, otherwise false.
    */
-  __device__ constexpr bool intersect(const ray *r, float min_t, vector *hit, float *dist, vector *normal) const {
+  __device__ constexpr bool intersect(const ray *r, float min_t, vector *hit, float *dist, vector *normal, uv *tex_coords) const {
     if(!bound_intersects(r)) return false;
 
     vector h{}, n{};
+    uv unused{};
     float t;
     *dist = INFINITY;
 
     for(const auto &tri: triangles) {
-      if(tri.intersect(r, min_t, &h, &t, &n) && t < *dist) {
+      if(tri.intersect(r, min_t, &h, &t, &n, &unused) && t < *dist) {
         *dist = t;
         *hit = h;
         *normal = n;
+        tex_coords->u = hit->x;
+        tex_coords->v = hit->y;
       }
     }
 
     return *dist != INFINITY;
+  }
+
+  __host__ inline void gpu_clean() {
+    cudaCheck(cudaFree(triangles.buffer))
+    triangles.buffer = nullptr;
+    triangles.size = 0;
   }
 };
 
@@ -117,6 +141,17 @@ struct plane {
   vector normal; //!< The normal direction of this plane
   size_t mat_idx; //!< The material index to render this plane with
 
+  __device__ constexpr uv uv_for(const vector *p) const {
+    vector ax1 = vector{ normal.y, -normal.x, 0.0f }.normalized();
+    vector ax2 = normal.cross(ax1);
+    vector mod_pt = point - *p;
+
+    return {
+      .u = ax1.dot(mod_pt),
+      .v = ax2.dot(mod_pt)
+    };
+  }
+
   /**
    * @brief Function to check if a ray intersects this plane.
    * @param[in] r The ray
@@ -126,18 +161,21 @@ struct plane {
    * @param[out] normal The normal at the point of the hit, if any
    * @return True if there's an intersection, otherwise false.
    */
-  __device__ constexpr bool intersect(const ray *r, float min_t, vector *hit, float *dist, vector *n) const {
+  __device__ constexpr bool intersect(const ray *r, float min_t, vector *hit, float *dist, vector *n, uv *tex_coords) const {
     float t0 = (point - r->start).dot(normal) / r->dir.dot(normal);
 
     if(isfinite(t0) && min_t <= t0) {
       *dist = t0;
       *hit = r->start + t0 * r->dir;
       *n = this->normal;
+      *tex_coords = uv_for(hit);
       return true;
     }
 
     return false;
   }
+
+  __host__ inline void gpu_clean() {}
 };
 
 /**
@@ -157,7 +195,7 @@ struct sphere {
    * @param[out] normal The normal at the point of the hit, if any
    * @return True if there's an intersection, otherwise false.
    */
-  __device__ constexpr bool intersect(const ray *r, float min_t, vector *hit, float *dist, vector *normal) const {
+  __device__ constexpr bool intersect(const ray *r, float min_t, vector *hit, float *dist, vector *normal, uv *tex_coords) const {
     auto d = r->dir.normalized(), c = center, e = r->start;
     float R = radius;
 
@@ -178,8 +216,13 @@ struct sphere {
 
     *hit = r->start + *dist * r->dir.normalized();
     *normal = (*hit - c).normalized();
+    vector delta = (*hit - center).normalized();
+    tex_coords->u = 0.5f + (atan2(delta.z, delta.x) / (2.0f * (float)M_PI));
+    tex_coords->v = 0.5f + (asin(delta.y) / (float)M_PI);
     return true;
   }
+
+  __host__ inline void gpu_clean() {}
 };
 
 static_assert(is_object<triangle>);
@@ -207,6 +250,8 @@ struct sun {
     *out_dir = -1.0f * direction;
     *distance = INFINITY;
   }
+
+  __host__ inline void gpu_clean() {}
 };
 
 /**
@@ -230,23 +275,45 @@ struct point_light {
     *direction = (point - *pt).normalized();
     *distance = (point - *pt).norm();
   }
+
+  __host__ inline void gpu_clean() {}
 };
 
 static_assert(is_light<sun>);
 static_assert(is_light<point_light>);
 
+#define I_A 0.1
+
 /**
  * @brief Struct representing a material.
  */
-struct solid_mat {
+struct phong_material {
   vector color; //!< The base color of the material
   float specular, //!< The specular factor for the material (how smooth/shiny it is)
         reflexivity, //!< The reflexivity factor for the material (how much it reflects/mirrors)
         phong_exp, //!< The Phong lighting exponent for the material
         transparency; //!< The transparency/translucency factor for the material
+
+  __device__ inline void get_phong_params(const vector *, const uv *, vector *color_out, vector *spec, float *ref, float *tran, float *phong) const {
+    *color_out = color;
+    *spec = specular * color;
+    *ref = reflexivity;
+    *tran = transparency;
+    *phong = phong_exp;
+  }
+
+  __host__ __device__ constexpr bool is_transparent() const { return transparency >= 1e-6; }
+  __host__ __device__ constexpr bool is_reflecting() const { return reflexivity >= 1e-6; }
+
+  __device__ inline void get_bounce_params(const vector *, const uv *, float *ref, float *trans) const {
+    *ref = reflexivity;
+    *trans = transparency;
+  }
+
+  __host__ inline void gpu_clean() {}
 };
 
-// static_assert(is_material<solid_mat>);
+static_assert(is_material<phong_material>);
 
 /**
  * @brief Struct representing a camera
@@ -257,7 +324,8 @@ struct cam {
   vector forward = { 0.0f, 0.0f, 1.0f }; //!< Forward direction for the camera (look-at)
   vector right = { 1.0f, 0.0f, 0.0f }; //!< Right direction for the camera
   float near = 0.1f, //!< Distance to the near plane (unused)
-        far = 100.0f; //!< Distance to the far plane (unused)
+        far = 100.0f, //!< Distance to the far plane (unused)
+        ambient = 0.1f;
   size_t w = 1920, //!< The width of the image to be rendered
          h = 1080; //!< The height of the image to be rendered
 
@@ -275,9 +343,26 @@ struct cam {
     right = forward.cross(up).normalized(); // perpendicular to plane formed by forward & up
     up = right.cross(forward).normalized(); // make them all perpendicular to each other
   }
+
+  __host__ __device__ constexpr ray get_ray(size_t x, size_t y) const {
+    float aspect = (float)w / (float)h;
+    return {
+      .start = pos,
+      .dir = (forward + ((float)x / (float)w - 0.5f) * aspect * right + ((float)y / (float)h) * up).normalized()
+    };
+  }
+
+  __host__ __device__ inline void get_bounds(size_t *w, size_t *h) const {
+    *w = this->w;
+    *h = this->h;
+  }
+
+  __host__ __device__ constexpr float get_ambient() const { return ambient; }
+
+  __host__ inline void gpu_clean() {}
 };
 
-// static_assert(is_camera<cam>);
+static_assert(is_camera<cam>);
 }
 
 namespace cutrace::cpu::schema {
@@ -516,7 +601,7 @@ struct solid_material {
   constexpr solid_material(vector color, float s, float r, float p, float t) :
     color{color}, specular{s}, reflexivity{r}, phong_exp{p}, transparency{t} {}
 
-  [[nodiscard]] inline gpu::schema::solid_mat to_gpu() const {
+  [[nodiscard]] inline gpu::schema::phong_material to_gpu() const {
     return { color.to_gpu(), specular, reflexivity, phong_exp, transparency };
   }
 
@@ -536,7 +621,7 @@ struct solid_material {
   >;
 };
 
-static_assert(cpu2gpu::cpu_gpu_material_pair<solid_material, gpu::schema::solid_mat>);
+static_assert(cpu2gpu::cpu_gpu_material_pair<solid_material, gpu::schema::phong_material >);
 
 using default_material_schema = all_materials_schema<solid_material::schema>;
 
@@ -546,15 +631,16 @@ struct default_cam {
   vector look = defaults::forward::value;
   float near = defaults::point_one::value;
   float far = defaults::one_hundred::value;
+  float ambient = defaults::point_one::value;
   size_t w = defaults::default_width::value;
   size_t h = defaults::default_height::value;
 
   constexpr default_cam() = default;
-  constexpr default_cam(vector e, vector u, vector l, float n, float f, size_t w, size_t h)
-    : pos{e}, up{u}, look{l}, near{n}, far{f}, w{w}, h{h} {}
+  constexpr default_cam(vector e, vector u, vector l, float n, float f, size_t w, size_t h, float ambient)
+    : pos{e}, up{u}, look{l}, near{n}, far{f}, w{w}, h{h}, ambient{ambient} {}
 
   [[nodiscard]] inline gpu::schema::cam to_gpu() const {
-    gpu::schema::cam res{ pos.to_gpu(), up.to_gpu(), {}, {}, near, far, w, h };
+    gpu::schema::cam res{ pos.to_gpu(), up.to_gpu(), {}, {}, near, far, ambient, w, h };
     res.look_at(look.to_gpu());
     return res;
   }
@@ -566,6 +652,7 @@ struct default_cam {
   constexpr const static char arg_far[] = "far_plane";
   constexpr const static char arg_w[] = "width";
   constexpr const static char arg_h[] = "height";
+  constexpr const static char arg_ambient[] = "ambient";
 
   using schema = cam_schema<default_cam,
     OPTIONAL(arg_pos, vector, defaults::black),
@@ -574,7 +661,8 @@ struct default_cam {
     OPTIONAL(arg_near, float, defaults::point_one),
     OPTIONAL(arg_far, float, defaults::one_hundred),
     OPTIONAL(arg_w, size_t, defaults::default_width),
-    OPTIONAL(arg_h, size_t, defaults::default_height)
+    OPTIONAL(arg_h, size_t, defaults::default_height),
+    OPTIONAL(arg_ambient, float, defaults::point_one)
   >;
 };
 
@@ -592,7 +680,7 @@ using default_cpu_material = cpu_material_set<solid_material>;
 using default_cpu_cam = default_cam;
 using default_gpu_object = gpu::gpu_object_set<gpu::schema::triangle, gpu::schema::mesh, gpu::schema::plane, gpu::schema::sphere>;
 using default_gpu_light = gpu::gpu_light_set<gpu::schema::sun, gpu::schema::point_light>;
-using default_gpu_material = gpu::gpu_material_set<gpu::schema::solid_mat>;
+using default_gpu_material = gpu::gpu_material_set<gpu::schema::phong_material>;
 using deafult_gpu_cam = gpu::schema::cam;
 
 using default_cpu_scene = cpu_scene_<default_cpu_object, default_cpu_light, default_cpu_material, default_cpu_cam>;

@@ -64,7 +64,7 @@ __global__ void kernel(cam cam, const gpu_scene scene, float *depth, vector *col
   cast_ray(&scene, &r, 0.1f, &dist, &hit_id, &hit_point, &normal, false);
 
   depth[y_id * cam.w + x_id] = dist;
-  normals[y_id * cam.w + x_id] = normal;
+  normals[y_id * cam.w + x_id] = { 0.5f + normal.x / 2, 0.5f + normal.y / 2, 0.5f + normal.z / 2 };
   color[y_id * cam.w + x_id] = ray_color(&scene, &r, 0.1f);
 }
 
