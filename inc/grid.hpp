@@ -111,6 +111,13 @@ public:
     *this = std::move(grid<T>(new_w, new_h));
   }
 
+  [[nodiscard]] constexpr size_t cols() const { return w; }
+  [[nodiscard]] constexpr size_t rows() const { return h; }
+  [[nodiscard]] constexpr size_t elems() const { return w * h; }
+
+  constexpr T &raw(size_t i) { return buffer[i]; }
+  constexpr const T&raw(size_t i) const { return buffer[i]; }
+
   inline ~grid() noexcept {
     delete [] buffer;
     w = 0;

@@ -22,7 +22,7 @@ FetchContent_Declare(
 
 add_executable(cutrace
         main.cu
-        src/images.cu
+        src/stb_impl.cu
 )
 
 add_executable(test_cutrace

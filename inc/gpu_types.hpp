@@ -7,6 +7,7 @@
 
 #include "gpu_variant.hpp"
 #include "vector.hpp"
+#include "gpu_array.hpp"
 
 namespace cutrace::gpu {
 /**

@@ -8,6 +8,7 @@
 #include <string>
 #include "picojson.h"
 #include "either.hpp"
+#include "vector.hpp"
 
 namespace cutrace {
 struct json_error {
