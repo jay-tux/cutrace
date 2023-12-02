@@ -6,7 +6,7 @@
 #define CUTRACE_RAY_CAST_HPP
 
 #include "vector.hpp"
-#include "gpu_types_.hpp"
+#include "gpu_types.hpp"
 
 namespace cutrace::gpu {
 template <typename S> requires(is_gpu_scene<S>)

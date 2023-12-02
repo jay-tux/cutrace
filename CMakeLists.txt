@@ -22,14 +22,7 @@ FetchContent_Declare(
 
 add_executable(cutrace
         main.cu
-        src/loader.cu
-        src/gpu_types.cu
-        src/cpu_types.cu
-        src/kernel_depth.cu
         src/images.cu
-        src/shading.cu
-        src/mesh_loader.cu
-        src/kernel_prepare.cu
 )
 
 add_executable(test_cutrace

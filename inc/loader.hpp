@@ -9,7 +9,6 @@
 #include <string>
 #include <fstream>
 #include "cpu_types.hpp"
-#include "cpu_types_.hpp"
 #include "picojson.h"
 #include "json_helpers.hpp"
 #include "either.hpp"
@@ -397,21 +396,6 @@ struct full_schema<all_objects_schema<Os...>, all_lights_schema<Ls...>, all_mate
             [](const auto *data) -> scene_t { return load_from(*data); }
     );
   }
-};
-
-/**
- * @brief Struct containing the static load method to load a scene from a file.
- */
-struct loader {
-  /**
-   * @brief Loads a scene from a file.
-   * @param [in] file The file to load from
-   * @return The parsed CPU scene
-   *
-   * The file should be a valid JSON file, conforming to the schema. Only minimal checking and error recovery is
-   * implemented.
-   */
-  static cpu::cpu_scene load(const std::string &file);
 };
 }
 

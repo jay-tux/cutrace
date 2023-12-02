@@ -9,6 +9,7 @@
 #include "cuda.hpp"
 #include "grid.hpp"
 #include "shading.hpp"
+#include "gpu_types.hpp"
 
 namespace cutrace::gpu {
 template <typename S, size_t bounces>
@@ -77,6 +78,18 @@ __host__ void render(const S &scene, float fudge, float &max, grid<float> &depth
 
   render_ms = std::chrono::duration_cast<std::chrono::milliseconds>(end_render - start_render).count();
   total_ms = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
+}
+
+template <typename S> requires(is_gpu_scene<S>)
+__host__ void cleanup(S &scene) {
+  for(auto &object: scene.objects) gpu_clean(object);
+  for(auto &light: scene.lights) gpu_clean(light);
+  for(auto &mat: scene.materials) gpu_clean(mat);
+  scene.cam.gpu_clean();
+
+  cudaCheck(cudaFree(scene.objects.buffer))
+  cudaCheck(cudaFree(scene.lights.buffer))
+  cudaCheck(cudaFree(scene.materials.buffer))
 }
 }
 

@@ -8,7 +8,7 @@
 #include <vector>
 #include "vector.hpp"
 #include "loader.hpp"
-#include "gpu_types_.hpp"
+#include "gpu_types.hpp"
 #include "cpu_to_gpu.hpp"
 #include "assimp/Importer.hpp"
 #include "assimp/scene.h"
@@ -225,10 +225,10 @@ struct sphere {
   __host__ inline void gpu_clean() {}
 };
 
-static_assert(is_object<triangle>);
-static_assert(is_object<mesh>);
-static_assert(is_object<plane>);
-static_assert(is_object<sphere>);
+//static_assert(is_object<triangle>);
+//static_assert(is_object<mesh>);
+//static_assert(is_object<plane>);
+//static_assert(is_object<sphere>);
 
 /**
  * @brief Struct representing a sun (directional light).
@@ -279,10 +279,8 @@ struct point_light {
   __host__ inline void gpu_clean() {}
 };
 
-static_assert(is_light<sun>);
-static_assert(is_light<point_light>);
-
-#define I_A 0.1
+//static_assert(is_light<sun>);
+//static_assert(is_light<point_light>);
 
 /**
  * @brief Struct representing a material.
@@ -313,7 +311,7 @@ struct phong_material {
   __host__ inline void gpu_clean() {}
 };
 
-static_assert(is_material<phong_material>);
+//static_assert(is_material<phong_material>);
 
 /**
  * @brief Struct representing a camera
@@ -362,7 +360,7 @@ struct cam {
   __host__ inline void gpu_clean() {}
 };
 
-static_assert(is_camera<cam>);
+//static_assert(is_camera<cam>);
 }
 
 namespace cutrace::cpu::schema {

@@ -6,8 +6,8 @@
 #define CUTRACE_CPU_TO_GPU_HPP
 
 #include "cuda.hpp"
-#include "cpu_types_.hpp"
-#include "gpu_types_.hpp"
+#include "cpu_types.hpp"
+#include "gpu_types.hpp"
 #include "gpu_array.hpp"
 
 namespace cutrace::cpu2gpu {
