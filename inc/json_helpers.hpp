@@ -69,7 +69,7 @@ template <typename T>
 inline auto coerce_key(const picojson::object &o, const std::string &name, const T &def) -> json_either<T> {
   auto it = o.find(name);
   if(it != o.end()) return coerce<T>(it->second);
-  else { std::cout << "Falling back to default for key " << name << "\n"; return {(T) def}; }
+  else { return {(T) def}; }
 }
 
 inline either<json_error, const picojson::object *> force_object(const picojson::value &v) {

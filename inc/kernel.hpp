@@ -26,7 +26,6 @@ __global__ void render_kernel(const S scene, float fudge, float *depth, vector *
 
   float dist = INFINITY;
   ray r = cam.get_ray(x_id, y_id);
-//  printf("Ray from { %f, %f, %f } in direction { %f, %f, %f }\n", r.start.x, r.start.y, r.start.z, r.dir.x, r.dir.y, r.dir.z);
   size_t hit_id = scene.objects.size;
   vector hit_point{}, normal{0,0,0};
   uv tc{};
@@ -38,14 +37,12 @@ __global__ void render_kernel(const S scene, float fudge, float *depth, vector *
 //  color[px_id] = did_hit ? ray_color<S, bounces>(&scene, &r, fudge, cam.get_ambient())
 //                         : cam.get_ambient() * vector{1.0f, 1.0f, 1.0f};
   color[px_id] = ray_color<S, bounces>(&scene, &r, fudge, cam.get_ambient());
-//  printf("Pixel (%d, %d) -> rgb(%f, %f, %f)\n", (int)x_id, (int)y_id, color[px_id].x, color[px_id].y, color[px_id].z);
 }
 
 template <typename S, size_t bounces = 10, size_t tpb = 256> requires(is_gpu_scene<S>)
 __host__ void render(const S &scene, float fudge, float &max, grid<float> &depth_map, grid<vector> &color_map, grid<vector> &normal_map, size_t &render_ms, size_t &total_ms) {
   auto start = std::chrono::high_resolution_clock::now();
 
-  std::cout << "Preparing..\n";
   size_t w, h;
   scene.cam.get_bounds(&w, &h);
 
@@ -60,12 +57,10 @@ __host__ void render(const S &scene, float fudge, float &max, grid<float> &depth
   cudaCheck(cudaMallocManaged(&gpu_normal, sizeof(vector) * w * h))
 
   size_t bpg = (w * h) / tpb + 1;
-  std::cout << "Prepare finished. Will fire " << bpg << " blocks of " << tpb << " threads.\n";
 
   auto start_render = std::chrono::high_resolution_clock::now();
   render_kernel<S, bounces><<<bpg, tpb>>>(scene, fudge, gpu_depth, gpu_col, gpu_normal);
   cudaCheck(cudaDeviceSynchronize())
-  std::cout << "GPU synchronized. Copying...\n";
   auto end_render = std::chrono::high_resolution_clock::now();
 
   for(size_t i = 0; i < h; i++) {
@@ -73,13 +68,11 @@ __host__ void render(const S &scene, float fudge, float &max, grid<float> &depth
     cudaCheck(cudaMemcpy(color_map.data(i), &gpu_col[i * w], sizeof(vector) * w, cudaMemcpyDeviceToHost))
     cudaCheck(cudaMemcpy(normal_map.data(i), &gpu_normal[i * w], sizeof(vector) * w, cudaMemcpyDeviceToHost))
   }
-  std::cout << "Copy finished. Freeing...\n";
 
   cudaCheck(cudaFree(gpu_depth))
   cudaCheck(cudaFree(gpu_col))
   cudaCheck(cudaFree(gpu_normal))
 
-  std::cout << "Free finished. Gathering max...\n";
   max = 0.0f;
   for(const auto &row: depth_map) {
     for(const auto &f: row) {
@@ -90,8 +83,6 @@ __host__ void render(const S &scene, float fudge, float &max, grid<float> &depth
 
   render_ms = std::chrono::duration_cast<std::chrono::milliseconds>(end_render - start_render).count();
   total_ms = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
-
-  std::cout << "Finished.\n";
 }
 
 template <typename S> requires(is_gpu_scene<S>)

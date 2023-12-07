@@ -68,7 +68,6 @@ struct loader_argument<name, vector, mandatory> {
   constexpr const static bool is_required = false;
 
   static inline or_error<vector> load_from(const picojson::object &o) {
-    std::cout << "Loading vector " << name << "\n";
 
     return coerce_key<json_t>(o, name).fmap([](const json_t &arr) -> or_error<vector> {
       if(arr.size() != 3) return {json_error{"Expected a 3-value array, got " + std::to_string(arr.size()) + " instead."} };
@@ -76,7 +75,6 @@ struct loader_argument<name, vector, mandatory> {
       return coerce<float>(arr[0]).fmap([&arr](const float &x) {
         return coerce<float>(arr[1]).fmap([&arr, x](const float &y) {
           return coerce<float>(arr[2]).fmap([x, y](const float &z) -> or_error<vector> {
-            std::cout << "Loaded a vector: { " << x << ", " << y << ", " << z << " }\n";
             return { vector{ x, y, z } };
           });
         });
@@ -94,8 +92,6 @@ struct loader_argument<name, vector, D> {
   constexpr const static vector default_v = D::value;
 
   static inline or_error<vector> load_from(const picojson::object &o) {
-    std::cout << "Loading vector " << name << "\n";
-
     auto d = picojson::array{
       {picojson::value(default_v.x), picojson::value(default_v.y), picojson::value(default_v.z)}
     };
@@ -106,7 +102,6 @@ struct loader_argument<name, vector, D> {
       return coerce<float>(arr[0]).fmap([&arr](const float &x) {
         return coerce<float>(arr[1]).fmap([&arr, x](const float &y) {
           return coerce<float>(arr[2]).fmap([x, y](const float &z) -> or_error<vector> {
-            std::cout << "Loaded a vector: { " << x << ", " << y << ", " << z << " }\n";
             return { vector{ x, y, z } };
           });
         });
@@ -305,14 +300,9 @@ struct cam_schema<C, loader_argument<names, Ts, Ds>...> {
   using cam_t = C;
 
   static inline or_error<C> load_from(const picojson::object &o) {
-    std::cout << "--- Started loading cam ---\n";
     auto res = fmap_all([](const auto &... args) -> C {
-      std::cout << "Arguments: ";
-      ((std::cout << args), ...);
-      std::cout << "\n";
       return C(args...);
     }, loader_argument<names, Ts, Ds>::load_from(o)...);
-    std::cout << "--- Cam is loaded ---\n";
     return res;
   }
 };

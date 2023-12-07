@@ -602,10 +602,8 @@ struct solid_material {
   vector color;
   float specular, reflexivity, phong_exp, transparency;
 
-  inline /*constexpr*/ solid_material(vector color, float s, float r, float p, float t) :
-    color{color}, specular{s}, reflexivity{r}, phong_exp{p}, transparency{t} {
-    std::cout << "Material{ .color = " << color << ", .specular = " << specular << ", .reflexivity = " << reflexivity << ", .phong_exp = " << phong_exp << ", .transparency = " << transparency << " }\n";
-  }
+  constexpr solid_material(vector color, float s, float r, float p, float t) :
+    color{color}, specular{s}, reflexivity{r}, phong_exp{p}, transparency{t} {}
 
   [[nodiscard]] inline gpu::schema::phong_material to_gpu() const {
     return { color.to_gpu(), specular, reflexivity, phong_exp, transparency };
