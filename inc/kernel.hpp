@@ -15,59 +15,71 @@ namespace cutrace::gpu {
 template <typename S, size_t bounces>
 __global__ void render_kernel(const S scene, float fudge, float *depth, vector *color, vector *normals) {
   size_t tid = threadIdx.x + blockIdx.x * blockDim.x;
-  auto cam = scene->cam;
+  auto cam = scene.cam;
   size_t w, h;
   cam.get_bounds(&w, &h);
   size_t max = w * h;
-  if(tid >= max) return;
+  if(tid >= max) { return; }
 
   size_t x_id = tid % w;
   size_t y_id = tid / w;
 
   float dist = INFINITY;
   ray r = cam.get_ray(x_id, y_id);
+//  printf("Ray from { %f, %f, %f } in direction { %f, %f, %f }\n", r.start.x, r.start.y, r.start.z, r.dir.x, r.dir.y, r.dir.z);
   size_t hit_id = scene.objects.size;
-  vector hit_point{}, normal{};
+  vector hit_point{}, normal{0,0,0};
   uv tc{};
   bool did_hit = ray_cast(&scene, &r, fudge, &dist, &hit_id, &hit_point, &normal, &tc, false);
 
-  size_t px_id = y_id + w * x_id;
+  size_t px_id = y_id * w + x_id;
   depth[px_id] = dist;
-  normals[px_id] = vector{0.5f, 0.5f, 0.5f} + 0.5f * normal;
-  color[px_id] = did_hit ? ray_color<S, bounces>(&scene, &r, fudge, cam.get_ambient())
-                         : cam.get_ambient() * vector{1.0f, 1.0f, 1.0f};
+  normals[px_id] = normal;
+//  color[px_id] = did_hit ? ray_color<S, bounces>(&scene, &r, fudge, cam.get_ambient())
+//                         : cam.get_ambient() * vector{1.0f, 1.0f, 1.0f};
+  color[px_id] = ray_color<S, bounces>(&scene, &r, fudge, cam.get_ambient());
+//  printf("Pixel (%d, %d) -> rgb(%f, %f, %f)\n", (int)x_id, (int)y_id, color[px_id].x, color[px_id].y, color[px_id].z);
 }
 
-template <typename S, size_t tpb = 256> requires(is_gpu_scene<S>)
+template <typename S, size_t bounces = 10, size_t tpb = 256> requires(is_gpu_scene<S>)
 __host__ void render(const S &scene, float fudge, float &max, grid<float> &depth_map, grid<vector> &color_map, grid<vector> &normal_map, size_t &render_ms, size_t &total_ms) {
   auto start = std::chrono::high_resolution_clock::now();
-  auto cam = scene.cam;
-  depth_map.resize(cam.w, cam.h);
-  color_map.resize(cam.w, cam.h);
-  normal_map.resize(cam.w, cam.h);
 
-  float *gpu_depth = nullptr, *gpu_col = nullptr, *gpu_normal = nullptr;
-  cudaCheck(cudaMallocManaged(&gpu_depth, sizeof(float) * cam.w * cam.h))
-  cudaCheck(cudaMallocManaged(&gpu_col, sizeof(vector) * cam.w * cam.h))
-  cudaCheck(cudaMallocManaged(&gpu_normal, sizeof(vector) * cam.w * cam.h))
+  std::cout << "Preparing..\n";
+  size_t w, h;
+  scene.cam.get_bounds(&w, &h);
 
-  size_t bpg = (cam.w * cam.h) / tpb + 1;
+  depth_map.resize(w, h);
+  color_map.resize(w, h);
+  normal_map.resize(w, h);
+
+  float *gpu_depth = nullptr;
+  vector *gpu_col = nullptr, *gpu_normal = nullptr;
+  cudaCheck(cudaMallocManaged(&gpu_depth, sizeof(float) * w * h))
+  cudaCheck(cudaMallocManaged(&gpu_col, sizeof(vector) * w * h))
+  cudaCheck(cudaMallocManaged(&gpu_normal, sizeof(vector) * w * h))
+
+  size_t bpg = (w * h) / tpb + 1;
+  std::cout << "Prepare finished. Will fire " << bpg << " blocks of " << tpb << " threads.\n";
 
   auto start_render = std::chrono::high_resolution_clock::now();
-  // TODO run kernel
+  render_kernel<S, bounces><<<bpg, tpb>>>(scene, fudge, gpu_depth, gpu_col, gpu_normal);
   cudaCheck(cudaDeviceSynchronize())
+  std::cout << "GPU synchronized. Copying...\n";
   auto end_render = std::chrono::high_resolution_clock::now();
 
-  for(size_t i = 0; i < cam.h; i++) {
-    cudaCheck(cudaMemcpy(depth_map.data(i), &gpu_depth[i * cam.w], sizeof(float) * cam.w, cudaMemcpyDeviceToHost))
-    cudaCheck(cudaMemcpy(color_map.data(i), &gpu_col[i * cam.w], sizeof(vector) * cam.w, cudaMemcpyDeviceToHost))
-    cudaCheck(cudaMemcpy(normal_map.data(i), &gpu_normal[i * cam.w], sizeof(vector) * cam.w, cudaMemcpyDeviceToHost))
+  for(size_t i = 0; i < h; i++) {
+    cudaCheck(cudaMemcpy(depth_map.data(i), &gpu_depth[i * w], sizeof(float) * w, cudaMemcpyDeviceToHost))
+    cudaCheck(cudaMemcpy(color_map.data(i), &gpu_col[i * w], sizeof(vector) * w, cudaMemcpyDeviceToHost))
+    cudaCheck(cudaMemcpy(normal_map.data(i), &gpu_normal[i * w], sizeof(vector) * w, cudaMemcpyDeviceToHost))
   }
+  std::cout << "Copy finished. Freeing...\n";
 
   cudaCheck(cudaFree(gpu_depth))
   cudaCheck(cudaFree(gpu_col))
   cudaCheck(cudaFree(gpu_normal))
 
+  std::cout << "Free finished. Gathering max...\n";
   max = 0.0f;
   for(const auto &row: depth_map) {
     for(const auto &f: row) {
@@ -78,6 +90,8 @@ __host__ void render(const S &scene, float fudge, float &max, grid<float> &depth
 
   render_ms = std::chrono::duration_cast<std::chrono::milliseconds>(end_render - start_render).count();
   total_ms = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
+
+  std::cout << "Finished.\n";
 }
 
 template <typename S> requires(is_gpu_scene<S>)
@@ -90,6 +104,30 @@ __host__ void cleanup(S &scene) {
   cudaCheck(cudaFree(scene.objects.buffer))
   cudaCheck(cudaFree(scene.lights.buffer))
   cudaCheck(cudaFree(scene.materials.buffer))
+}
+
+template <typename S> requires(is_gpu_scene<S>)
+__global__ void dump_scene_kernel(S scene) {
+  printf(" -> Have %-4llu objects:\n", scene.objects.size);
+  for(size_t i = 0; i < scene.objects.size; i++) {
+    printf("  -> Object   #%-4llu has type #%-2llu\n", i, scene.objects[i].get_idx());
+  }
+
+  printf(" -> Have %-4llu lights:\n", scene.lights.size);
+  for(size_t i = 0; i < scene.lights.size; i++) {
+    printf("  -> Light    #%-4llu has type #%-2llu\n", i, scene.lights[i].get_idx());
+  }
+
+  printf(" -> Have %-4llu materials:\n", scene.materials.size);
+  for(size_t i = 0; i < scene.materials.size; i++) {
+    printf("  -> Material #%-4llu has type #%-2llu\n", i, scene.materials[i].get_idx());
+  }
+}
+
+template <typename S> requires(is_gpu_scene<S>)
+__host__ void dump_scene(const S &scene) {
+  dump_scene_kernel<<<1, 1>>>(scene);
+  cudaCheck(cudaDeviceSynchronize())
 }
 }
 

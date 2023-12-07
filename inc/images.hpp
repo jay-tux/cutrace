@@ -46,8 +46,11 @@ inline void write_depth_map(const std::string &file, const grid<float> &depth_ma
  */
 inline void write_normal_map(const std::string &file, const grid<vector> &normal_map) {
   static const auto clamp = [](vector v){
-    auto n = v.normalized();
-    return std::tuple<byte, byte, byte>{ (byte)(255 * n.x), (byte)(255 * n.x), (byte)(255 * n.x) };
+    if(v.norm() <= 1e-6) {
+      return std::tuple<byte, byte, byte>{0,0,0};
+    }
+    auto n = vector{0.5f, 0.5f, 0.5f} + 0.5f * v.normalized();
+    return std::tuple<byte, byte, byte>{ (byte)(255 * n.x), (byte)(255 * n.y), (byte)(255 * n.z) };
   };
 
   byte *data = new byte[3 * normal_map.elems()];
@@ -69,7 +72,7 @@ inline void write_normal_map(const std::string &file, const grid<vector> &normal
 inline void write_colorized(const std::string &file, const grid<vector> &colorized) {
   static const auto clamp = [](vector v){
     vector n = { std::min(1.0f, std::max(0.0f, v.x)), std::min(1.0f, std::max(0.0f, v.y)), std::min(1.0f, std::max(0.0f, v.z)) };
-    return std::tuple<byte, byte, byte>{ (byte)(255 * n.x), (byte)(255 * n.x), (byte)(255 * n.x) };
+    return std::tuple<byte, byte, byte>{ (byte)(255 * n.x), (byte)(255 * n.y), (byte)(255 * n.z) };
   };
 
   byte *data = new byte[3 * colorized.elems()];

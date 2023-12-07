@@ -22,14 +22,15 @@ __device__ bool ray_cast(const S *scene, const ray *finder, float min_dist, floa
     const auto &mat = scene->materials[get_mat_idx(obj)];
     if(ignore_transparent && is_transparent(mat)) continue; // ignore
 
-    if(get_intersect(obj, finder, min_dist, &hit, &dist, &nrm, &tc)
-        && dist > min_dist && dist < *distance) {
-      *distance = dist;
-      *hit_id = i;
-      *hit_point = hit;
-      *normal = nrm;
-      *tex_coords = tc;
-      was_hit = true;
+    if(get_intersect(obj, finder, min_dist, &hit, &dist, &nrm, &tc)) {
+      if (dist > min_dist && dist < *distance) {
+        *distance = dist;
+        *hit_id = i;
+        *hit_point = hit;
+        *normal = nrm;
+        *tex_coords = tc;
+        was_hit = true;
+      }
     }
   }
 

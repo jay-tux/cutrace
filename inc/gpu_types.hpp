@@ -48,15 +48,15 @@ using gpu_object_set = gpu_variant<Ts...>;
 
 template <typename ... Ts>
 inline __device__ bool get_intersect(const gpu_object_set<Ts...> &o, const ray *r, float min_t, vector *p, float *dist, vector *normal, uv *tex_coords) {
-  auto visitor = [r, min_t, p, dist, normal, tex_coords]<typename T>(const T &v) -> bool {
-    return v.intersect(r, min_t, p, dist, normal, tex_coords);
+  auto visitor = [r, min_t, p, dist, normal, tex_coords]<typename T>(const T *v) -> bool {
+    return v->intersect(r, min_t, p, dist, normal, tex_coords);
   };
   return visit(&visitor, &o);
 }
 
 template <typename ... Ts>
 inline __host__ __device__ size_t get_mat_idx(const gpu_object_set<Ts...> &o) {
-  auto visitor = []<typename T>(const T &v) -> size_t { return v.mat_idx; };
+  auto visitor = []<typename T>(const T *v) -> size_t { return v->mat_idx; };
   return visit(&visitor, &o);
 }
 
@@ -79,15 +79,15 @@ using gpu_light_set = gpu_variant<Ts...>;
 
 template <typename ... Ts>
 inline __device__ void get_direction_to(const gpu_light_set<Ts...> &l, const vector *point, vector *direction, float *distance) {
-  auto visitor = [point, direction,distance]<typename T>(const T &v) {
-    v.direction_to(point, direction, distance);
+  auto visitor = [point, direction,distance]<typename T>(const T *v) {
+    v->direction_to(point, direction, distance);
   };
   visit(&visitor, &l);
 }
 
 template <typename ... Ts>
-constexpr __host__ __device__ const vector &get_color(const gpu_light_set<Ts...> &l) {
-  auto visitor = []<typename T>(const T &v) { return v.color; };
+constexpr __host__ __device__ vector get_color(const gpu_light_set<Ts...> &l) {
+  auto visitor = []<typename T>(const T *v) { return v->color; };
   return visit(&visitor, &l);
 }
 
@@ -103,31 +103,32 @@ using gpu_material_set = gpu_variant<Ts...>;
 
 template <typename ... Ts>
 constexpr __device__ void get_phong_params(const gpu_material_set<Ts...> &m, const vector *normal, const uv *tc, vector *col, vector *spec, float *ref, float *trans, float *phong) {
-  auto visitor = [normal, tc, col, spec, ref, trans, phong]<typename T>(const T &v) {
-    v.get_phong_params(normal, tc, col, spec, ref, trans, phong);
+  auto visitor = [normal, tc, col, spec, ref, trans, phong]<typename T>(const T *v) {
+    v->get_phong_params(normal, tc, col, spec, ref, trans, phong);
   };
   visit(&visitor, &m);
 }
 
 template <typename ... Ts>
 constexpr __device__ bool is_transparent(const gpu_material_set<Ts...> &m) {
-  auto visitor = []<typename T>(const T &v) { return v.is_transparent(); };
+  auto visitor = []<typename T>(const T *v) { return v->is_transparent(); };
   return visit(&visitor, &m);
 }
 
 template <typename ... Ts>
 constexpr __device__ bool is_reflecting(const gpu_material_set<Ts...> &m) {
-  auto visitor = []<typename T>(const T &v) { return v.is_reflecting(); };
+  auto visitor = []<typename T>(const T *v) { return v->is_reflecting(); };
   return visit(&visitor, &m);
 }
 
 template <typename ... Ts>
 constexpr __device__ void get_bounce_params(const gpu_material_set<Ts...> &m, const vector *normal, const uv *tc, float *ref, float *trans) {
-  auto visitor = [normal, tc, ref, trans]<typename T>(const T &v) {
-    v.get_bounce_params(normal, tc, ref, trans);
+  auto visitor = [normal, tc, ref, trans]<typename T>(const T *v) {
+    v->get_bounce_params(normal, tc, ref, trans);
   };
   visit(&visitor, &m);
 }
+
 
 template <typename T>
 concept is_camera = is_gpu_cleanable<T> && requires(const T &t, size_t x, size_t y, size_t *w, size_t *h) {

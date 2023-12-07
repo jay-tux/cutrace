@@ -202,6 +202,10 @@ public:
   __host__ __device__ inline const T *get() const {
     return reinterpret_cast<const T *>(data);
   }
+
+  __host__ __device__ inline size_t get_idx() const {
+    return idx;
+  }
 };
 
 namespace impl {

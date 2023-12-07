@@ -13,8 +13,9 @@
 namespace cutrace::gpu {
 template <typename S> requires (is_gpu_scene<S>)
 __device__ vector phong(const S *scene, const ray *incoming, const vector *hit, size_t hit_id, const vector *normal, const uv *tex_coords, float ambient) {
-  const auto &obj = scene->objects[hit_id];
-  const auto &mat = scene->materials[get_mat_idx(obj)];
+  const auto obj = &scene->objects[hit_id];
+  size_t mat_i = get_mat_idx(*obj);
+  const auto &mat = scene->materials[mat_i];
   vector diffuse{}, specular{};
   float reflect, translucent, phong_exp;
   get_phong_params(mat, normal, tex_coords, &diffuse, &specular, &reflect, &translucent, &phong_exp);
@@ -22,29 +23,34 @@ __device__ vector phong(const S *scene, const ray *incoming, const vector *hit, 
   vector final = diffuse * ambient;
 
   vector direction{}, unused{};
-  float distance, shadow_dist_raw;
+  float distance = INFINITY, shadow_dist_raw = INFINITY;
   size_t h_;
   uv tc{};
 
   for(const auto &light : scene->lights) {
     get_direction_to(light, hit, &direction, &distance);
-    ray shadow { .start = *hit, .dir = direction };
+    ray shadow{.start = *hit, .dir = direction};
     float light_dist = distance * direction.norm();
     vector color = get_color(light);
     vector nn = normal->normalized(), nd = direction.normalized();
 
-    if(ray_cast(scene, shadow, 1e-3, &shadow_dist_raw, &h_, &unused, &unused, &tc, true)) {
-      float shadow_dist = shadow_dist_raw * shadow.dir.norm();
-      if(light_dist < shadow_dist) {
-        float fd = max(0.0f, nn.dot(nd));
-        vector ld = diffuse * color;
+    bool did_hit = ray_cast(scene, &shadow, 1e-3, &shadow_dist_raw, &h_, &unused, &unused, &tc, true);
+    float shadow_dist = shadow_dist_raw * shadow.dir.norm();
+    if (!(did_hit && shadow_dist < light_dist)) {
+//      uint tid = threadIdx.x + blockIdx.x * blockDim.x;
+//      printf("Thread %u didn't get blocked!\n", tid);
+      float fd = max(0.0f, nn.dot(nd));
+      vector ld = diffuse * color;
 
-        vector h = ((-1.0f * incoming->dir.normalized()) + nd).normalized();
-        float fs = pow(max(0.0f, nn.dot(h)), phong_exp);
-        vector ls = specular * color;
+      vector h = ((-1.0f * incoming->dir.normalized()) + nd).normalized();
+      float fs = pow(max(0.0f, nn.dot(h)), phong_exp);
+      vector ls = specular * color;
 
-        final += fd * ld + fs * ls;
-      }
+      final += fd * ld + fs * ls;
+    }
+    else {
+//      uint tid = threadIdx.x + blockIdx.x * blockDim.x;
+//      printf("Thread %u -> light ray blocked (did hit? %s (hit object %d); light dist %f < %f shadow_dist)\n", tid, did_hit ? "true" : "false", (int)h_, light_dist, shadow_dist);
     }
   }
 

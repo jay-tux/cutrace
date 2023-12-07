@@ -14,6 +14,7 @@
 #include "assimp/scene.h"
 #include "assimp/postprocess.h"
 #include "ray_cast.hpp"
+#include "schema_view.hpp"
 
 namespace cutrace::gpu::schema {
 /**
@@ -200,7 +201,7 @@ struct sphere {
     float R = radius;
 
     float dec = -d.dot(e - c);
-    float sub = dec * dec - d.dot(d) * ((e - c).dot(e - c) * R * R);
+    float sub = dec * dec - d.dot(d) * ((e - c).dot(e - c) - R * R);
 
     float t0 = (dec - sqrt(sub)) / d.dot(d), t1 = (dec + sqrt(sub)) / d.dot(d);
     bool t0v = isfinite(t0) && min_t <= t0, t1v = isfinite(t1) && min_t <= t1;
@@ -344,9 +345,13 @@ struct cam {
 
   __host__ __device__ constexpr ray get_ray(size_t x, size_t y) const {
     float aspect = (float)w / (float)h;
+    vector x_v = (((float)x / (float)w) - 0.5f) * aspect * right;
+    vector y_v = (0.5f - ((float)y / (float)h)) * up;
+    vector z_v = forward;
+
     return {
       .start = pos,
-      .dir = (forward + ((float)x / (float)w - 0.5f) * aspect * right + ((float)y / (float)h) * up).normalized()
+      .dir = (x_v + y_v + z_v).normalized()
     };
   }
 
@@ -399,6 +404,7 @@ struct default_height : std::integral_constant<size_t, 1080> {};
 
 #define ARGUMENT(name, type) loader_argument<name, type, mandatory>
 #define OPTIONAL(name, type, def) loader_argument<name, type, def>
+#define MK_MANDATORY(x) loader_argument<x::n, x::type, mandatory>
 
 struct triangle {
   vector p1, p2, p3;
@@ -596,8 +602,10 @@ struct solid_material {
   vector color;
   float specular, reflexivity, phong_exp, transparency;
 
-  constexpr solid_material(vector color, float s, float r, float p, float t) :
-    color{color}, specular{s}, reflexivity{r}, phong_exp{p}, transparency{t} {}
+  inline /*constexpr*/ solid_material(vector color, float s, float r, float p, float t) :
+    color{color}, specular{s}, reflexivity{r}, phong_exp{p}, transparency{t} {
+    std::cout << "Material{ .color = " << color << ", .specular = " << specular << ", .reflexivity = " << reflexivity << ", .phong_exp = " << phong_exp << ", .transparency = " << transparency << " }\n";
+  }
 
   [[nodiscard]] inline gpu::schema::phong_material to_gpu() const {
     return { color.to_gpu(), specular, reflexivity, phong_exp, transparency };
@@ -653,14 +661,14 @@ struct default_cam {
   constexpr const static char arg_ambient[] = "ambient";
 
   using schema = cam_schema<default_cam,
-    OPTIONAL(arg_pos, vector, defaults::black),
-    OPTIONAL(arg_up, vector, defaults::up),
-    OPTIONAL(arg_look, vector, defaults::forward),
-    OPTIONAL(arg_near, float, defaults::point_one),
-    OPTIONAL(arg_far, float, defaults::one_hundred),
-    OPTIONAL(arg_w, size_t, defaults::default_width),
-    OPTIONAL(arg_h, size_t, defaults::default_height),
-    OPTIONAL(arg_ambient, float, defaults::point_one)
+    MK_MANDATORY(OPTIONAL(arg_pos, vector, defaults::black)),
+    MK_MANDATORY(OPTIONAL(arg_up, vector, defaults::up)),
+    MK_MANDATORY(OPTIONAL(arg_look, vector, defaults::forward)),
+    MK_MANDATORY(OPTIONAL(arg_near, float, defaults::point_one)),
+    MK_MANDATORY(OPTIONAL(arg_far, float, defaults::one_hundred)),
+    MK_MANDATORY(OPTIONAL(arg_w, size_t, defaults::default_width)),
+    MK_MANDATORY(OPTIONAL(arg_h, size_t, defaults::default_height)),
+    MK_MANDATORY(OPTIONAL(arg_ambient, float, defaults::point_one))
   >;
 };
 
@@ -689,6 +697,8 @@ using default_converter = cpu2gpu::cpu_to_gpu<default_cpu_scene, default_gpu_sce
 inline default_gpu_scene default_to_gpu(const default_cpu_scene &cpu) {
   return default_converter::convert(cpu);
 }
+
+using default_schema_viewer = viewer_for_t<default_schema>;
 }
 
 #endif //CUTRACE_DEFAULT_SCHEMA_HPP

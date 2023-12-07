@@ -17,7 +17,7 @@ public:
     constexpr row_it(T1 *elem) : elem{elem} {}
 
     constexpr T1 &operator*() noexcept { return *elem; }
-    constexpr row_it<T1> operator++() noexcept { return row_it<T1>(elem++); }
+    constexpr row_it<T1> operator++() noexcept { return row_it<T1>(++elem); }
 
     constexpr bool operator!=(const row_it<T1> &other) { return elem != other.elem; }
 
@@ -52,7 +52,8 @@ public:
     constexpr row<T1> operator*() noexcept { return row<T1>(ptr, w); }
 
     constexpr grid_it<T1> operator++() noexcept {
-      return grid_it<T1>(ptr + w, w);
+      ptr += w;
+      return grid_it<T1>(ptr, w);
     }
     constexpr bool operator!=(const grid_it<T1> &other) const noexcept { return ptr != other.ptr; }
 
@@ -107,7 +108,7 @@ public:
   constexpr T *data() { return buffer; }
   constexpr T *data(size_t i) { return buffer + w * i; }
 
-  inline grid resize(size_t new_w, size_t new_h) requires(std::default_initializable<T>) {
+  inline void resize(size_t new_w, size_t new_h) requires(std::default_initializable<T>) {
     *this = std::move(grid<T>(new_w, new_h));
   }
 

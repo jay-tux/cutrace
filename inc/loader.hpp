@@ -17,6 +17,10 @@
  * @brief Namespace containing all of cutrace's code.
  */
 namespace cutrace {
+__host__ inline std::ostream &operator<<(std::ostream &strm, const vector &v) {
+  return strm << "vector{ .x = " << v.x << ", .y = " << v.y << ", .z = " << v.z << " }";
+}
+
 //region loader arguments
 
 template <typename T>
@@ -33,6 +37,7 @@ template <const char *name, typename T, typename D = mandatory> struct loader_ar
 
 template <const char *name, typename T>
 struct loader_argument<name, T, mandatory> {
+  constexpr static const char *n = name;
   using type = T;
   using json_t = json_type<T>::type;
   constexpr const static bool is_required = true;
@@ -44,6 +49,7 @@ struct loader_argument<name, T, mandatory> {
 
 template <const char *name, typename T, typename D> requires(compile_time_T<D, T>)
 struct loader_argument<name, T, D> {
+  constexpr static const char *n = name;
   using type = T;
   using json_t = json_type<T>::type;
   constexpr const static bool is_required = false;
@@ -56,17 +62,21 @@ struct loader_argument<name, T, D> {
 
 template <const char *name>
 struct loader_argument<name, vector, mandatory> {
+  constexpr static const char *n = name;
   using type = vector;
   using json_t = picojson::array;
   constexpr const static bool is_required = false;
 
   static inline or_error<vector> load_from(const picojson::object &o) {
+    std::cout << "Loading vector " << name << "\n";
+
     return coerce_key<json_t>(o, name).fmap([](const json_t &arr) -> or_error<vector> {
       if(arr.size() != 3) return {json_error{"Expected a 3-value array, got " + std::to_string(arr.size()) + " instead."} };
 
       return coerce<float>(arr[0]).fmap([&arr](const float &x) {
         return coerce<float>(arr[1]).fmap([&arr, x](const float &y) {
-          return coerce<float>(arr[1]).fmap([x, y](const float &z) -> or_error<vector> {
+          return coerce<float>(arr[2]).fmap([x, y](const float &z) -> or_error<vector> {
+            std::cout << "Loaded a vector: { " << x << ", " << y << ", " << z << " }\n";
             return { vector{ x, y, z } };
           });
         });
@@ -77,12 +87,15 @@ struct loader_argument<name, vector, mandatory> {
 
 template <const char *name, typename D> requires(compile_time_T<D, vector>)
 struct loader_argument<name, vector, D> {
+  constexpr static const char *n = name;
   using type = vector;
   using json_t = picojson::array;
   constexpr const static bool is_required = false;
   constexpr const static vector default_v = D::value;
 
   static inline or_error<vector> load_from(const picojson::object &o) {
+    std::cout << "Loading vector " << name << "\n";
+
     auto d = picojson::array{
       {picojson::value(default_v.x), picojson::value(default_v.y), picojson::value(default_v.z)}
     };
@@ -92,7 +105,8 @@ struct loader_argument<name, vector, D> {
 
       return coerce<float>(arr[0]).fmap([&arr](const float &x) {
         return coerce<float>(arr[1]).fmap([&arr, x](const float &y) {
-          return coerce<float>(arr[1]).fmap([x, y](const float &z) -> or_error<vector> {
+          return coerce<float>(arr[2]).fmap([x, y](const float &z) -> or_error<vector> {
+            std::cout << "Loaded a vector: { " << x << ", " << y << ", " << z << " }\n";
             return { vector{ x, y, z } };
           });
         });
@@ -198,7 +212,7 @@ template <typename Out, typename ... Ts> struct find_matching_light;
 template <typename Out, typename T> requires(is_light_schema<T>::value)
 struct find_matching_light<Out, T> {
   static inline or_error<Out> find(const std::string &key, const picojson::object &o) {
-    if(T::type == key) T::load_from(o).template re_wrap<Out>();
+    if(T::type == key) return T::load_from(o).template re_wrap<Out>();
     return or_error<Out>::left(json_error{ "Type '" + key + "' is invalid." });
   }
 };
@@ -291,9 +305,15 @@ struct cam_schema<C, loader_argument<names, Ts, Ds>...> {
   using cam_t = C;
 
   static inline or_error<C> load_from(const picojson::object &o) {
-    return fmap_all([](const auto &... args) -> C {
+    std::cout << "--- Started loading cam ---\n";
+    auto res = fmap_all([](const auto &... args) -> C {
+      std::cout << "Arguments: ";
+      ((std::cout << args), ...);
+      std::cout << "\n";
       return C(args...);
     }, loader_argument<names, Ts, Ds>::load_from(o)...);
+    std::cout << "--- Cam is loaded ---\n";
+    return res;
   }
 };
 //endregion
@@ -312,7 +332,11 @@ struct full_schema<all_objects_schema<Os...>, all_lights_schema<Ls...>, all_mate
   using cam_t = C;
   using scene_t = cpu::cpu_scene_<object_t, light_t, material_t, cam_t>;
 
+  static inline bool last_was_success = true;
+
   static inline scene_t load_from(const picojson::object &o) {
+    last_was_success = true;
+
     std::vector<object_t> objects{};
     std::vector<light_t> lights{};
     std::vector<material_t> materials{};
@@ -321,60 +345,68 @@ struct full_schema<all_objects_schema<Os...>, all_lights_schema<Ls...>, all_mate
     coerce_key<picojson::array>(o, "objects").map([&objects](const picojson::array &objs) {
       objects.reserve(objs.size());
       for(size_t i = 0; i < objs.size(); i++) {
-        force_object(objs[i]).map([&objects](const auto *v) {
-          object_schema::load_from(*v).map([&objects](const auto &obj) {
+        force_object(objs[i]).fmap([&objects](const auto *v) {
+          return object_schema::load_from(*v).map([&objects](const auto &obj) {
             objects.push_back(obj);
           });
         }).map_left([i](const json_error &err) {
           std::cerr << "Error while loading object #" << i << ": " << err.message << "\n";
+          last_was_success = false;
         });
       }
     }).map_left([](const json_error &err) {
       std::cerr << "Could not find 'objects' array: " << err.message << ".\n";
+      last_was_success = false;
     });
 
     coerce_key<picojson::array>(o, "lights").map([&lights](const picojson::array &objs) {
       lights.reserve(objs.size());
       for(size_t i = 0; i < objs.size(); i++) {
-        force_object(objs[i]).map([&lights](const auto *v) {
-          light_schema::load_from(*v).map([&lights](const auto &light) {
+        force_object(objs[i]).fmap([&lights](const auto *v) {
+          return light_schema::load_from(*v).map([&lights](const auto &light) {
             lights.push_back(light);
           });
         }).map_left([i](const json_error &err) {
           std::cerr << "Error while loading light #" << i << ": " << err.message << "\n";
+          last_was_success = false;
         });
       }
     }).map_left([](const json_error &err) {
       std::cerr << "Could not find 'lights' array: " << err.message << ".\n";
+      last_was_success = false;
     });
 
     coerce_key<picojson::array>(o, "materials").map([&materials](const picojson::array &objs) {
       materials.reserve(objs.size());
       for(size_t i = 0; i < objs.size(); i++) {
-        force_object(objs[i]).map([&materials](const auto *v) {
-          material_schema::load_from(*v).map([&materials](const auto &material) {
+        force_object(objs[i]).fmap([&materials](const auto *v) {
+          return material_schema::load_from(*v).map([&materials](const auto &material) {
             materials.push_back(material);
           });
         }).map_left([i](const json_error &err) {
           std::cerr << "Error while loading material #" << i << ": " << err.message << "\n";
+          last_was_success = false;
         });
       }
     }).map_left([](const json_error &err) {
       std::cerr << "Could not find 'materials' array: " << err.message << ".\n";
+      last_was_success = false;
     });
 
-    coerce_key<picojson::object>(o, "camera").map([&camera](const picojson::object &obj) {
-      camera_schema::load_from(obj).map([&camera](const auto &c) {
+    coerce_key<picojson::object>(o, "camera").fmap([&camera](const picojson::object &obj) {
+      return camera_schema::load_from(obj).map([&camera](const auto &c) {
         camera = c;
       });
     }).map_left([](const json_error &err) {
-      std::cerr << "Could not find 'camera' object: " << err.message << ".\n";
+      std::cerr << "Could not find 'camera' object or it's invalid: " << err.message << ".\n";
+      last_was_success = false;
     });
 
     return scene_t {
       .objects = objects,
       .lights = lights,
-      .materials = materials
+      .materials = materials,
+      .cam = camera
     };
   }
 
