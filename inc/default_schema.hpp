@@ -47,8 +47,8 @@ struct triangle {
    * @return True if there's an intersection, otherwise false.
    */
   __device__ constexpr bool intersect(const ray *r, float min_t, vector *hit, float *dist, vector *normal, uv *tex_coords) const {
-    auto a = p1 - p2, b = p2 - p3,
-         c = r->dir, d =p2 - r->start;
+    auto a = p2 - p1, b = p2 - p3,
+         c = r->dir, d = p2 - r->start;
 
     matrix A{{a,b,d}}, B{{a,b,c}},
            A1{{d,b,c}}, A2{{a,d,c}};
