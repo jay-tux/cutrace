@@ -39,11 +39,14 @@ exhale_args = {
     'createTreeView': True,
     'exhaleExecutesDoxygen': True,
     'exhaleDoxygenStdin': textwrap.dedent('''
-        INPUT      = ../inc
-        PREDEFINED += __device__=/**@device*/ __host__=/**@host*/
-        ALIASES    += host="<para><em>Host function</em><para>"
-        ALIASES    += device="<para><em>Device function</em><para>"
-        ALIASES    += global="<para><em>Global function</em><para>"
+        INPUT           = ../inc
+        PREDEFINED      += __device__=/**@device*/ __host__=/**@host*/
+        ALIASES         += host="<para><em>Host function</em><para>"
+        ALIASES         += device="<para><em>Device function</em><para>"
+        ALIASES         += global="<para><em>Global function</em><para>"
+        EXTRACT_ALL     = NO
+        EXTRACT_PRIVATE = NO
+        EXCLUDE_SYMBOLS = cutrace::impl cutrace::gpu::impl cutrace::cpu::impl cutrace::cpu::schema::impl
     ''')
 }
 

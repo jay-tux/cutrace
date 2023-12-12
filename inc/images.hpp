@@ -15,7 +15,7 @@
  * @brief Namespace containing all of cutrace’s code.
  */
 namespace cutrace {
-using byte = unsigned char;
+using byte = unsigned char; //!< Type alias for a byte.
 
 /**
  * @brief Writes a depth map to a JPG image (single-channel).

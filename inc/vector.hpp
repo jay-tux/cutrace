@@ -11,9 +11,12 @@
  * @brief Namespace containing all of cutrace’s code.
  */
 namespace cutrace {
+/**
+ * @brief Struct representing 2D texture coordinates.
+ */
 struct uv {
-  float u;
-  float v;
+  float u; //!< The horizontal (U) component
+  float v; //!< The vertical (V) component
 };
 
 /**
@@ -35,10 +38,21 @@ struct vector {
     return i == 0 ? x : i == 1 ? y : z;
   }
 
+  /**
+   * @brief Gets the `i`-th component of the vector by reference.
+   * @param i The index of the component
+   * @return A reference to the requested component
+   *
+   * X corresponds to index 0, Y to index 1, Z to index 2. Any other index is undefined behavior (but will result in Z).
+   */
   constexpr __host__ __device__ float &operator[](int i) {
     return i == 0 ? x : i == 1 ? y : z;
   }
 
+  /**
+   * @brief Converts this vector to GPU.
+   * @return This vector
+   */
   [[nodiscard]] constexpr inline vector to_gpu() const {
     return *this;
   }
@@ -159,6 +173,10 @@ struct bound {
     return *this;
   }
 
+  /**
+   * @brief Generates incorrect bounds, suitable to start merging a set of bounds.
+   * @return An invalid AABB
+   */
   __host__ __device__ constexpr static bound incorrect() {
     return {
             { INFINITY, INFINITY, INFINITY },
@@ -187,9 +205,16 @@ __host__ __device__ constexpr vector reflect(const vector &incoming, const vecto
   return incoming - 2.0f * (normal.dot(incoming)) * normal;
 }
 
+/**
+ * @brief Struct representing a 3x3-matrix.
+ */
 struct matrix {
-  vector columns[3];
+  vector columns[3]; //!< The columns of the matrix
 
+  /**
+   * @brief Computes the determinant of the matrix.
+   * @return The determinant
+   */
   __device__ constexpr float determinant() {
     float a = columns[0].x, b = columns[1].x, c = columns[2].x,
             d = columns[0].y, e = columns[1].y, f = columns[2].y,
@@ -198,9 +223,24 @@ struct matrix {
     return a*e*i + b*f*g + c*d*h - c*e*g - a*f*h - b*d*i;
   }
 
+  /**
+   * @brief Gets the `i`-th column of the matrix as vector.
+   * @param i The index of the column
+   * @return A reference to the requested column
+   */
   __device__ constexpr vector &operator[](size_t i) { return columns[i]; }
+  /**
+   * @brief Gets the `i`-th column of the matrix as vector.
+   * @param i The index of the column
+   * @return A constant reference to the requested column
+   */
   __device__ constexpr const vector &operator[](size_t i) const { return columns[i]; }
 
+  /**
+   * @brief Performs matrix multiplication
+   * @param b The other matrix
+   * @return \f$(*this) \cdot b\f$
+   */
   __device__ constexpr matrix operator*(const matrix &b) const {
     const matrix &a = *this;
     matrix res{};
@@ -217,6 +257,11 @@ struct matrix {
     return res;
   }
 
+  /**
+   * Performs matrix-vector multiplication
+   * @param v The vector to multiply with
+   * @return \f$(*this) \cdot v\f$
+   */
   __device__ constexpr vector operator*(const vector &v) const {
     const matrix &a = *this;
     vector res{};

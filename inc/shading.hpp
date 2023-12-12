@@ -11,6 +11,23 @@
  * @brief Main namespace for GPU-related code.
  */
 namespace cutrace::gpu {
+/**
+ * @brief Performs Phong-shading.
+ * @tparam S The type of the GPU scene
+ * @param scene The GPU scene
+ * @param incoming The incoming ray
+ * @param hit The point of the hit
+ * @param hit_id The index of the object that was hit
+ * @param normal The normal at the point of the hit
+ * @param tex_coords The texture coordinates at the point of the hit
+ * @param ambient The ambient lighting factor
+ * @return The color of the light according to the material settings and the Phong lighting model
+ *
+ * This function takes into account all lights, and whether or not there are shadows cast on this point.
+ * However, it does not apply reflection or transparency.
+ *
+ * @see cutrace::gpu::ray_color
+ */
 template <typename S> requires (is_gpu_scene<S>)
 __device__ vector phong(const S *scene, const ray *incoming, const vector *hit, size_t hit_id, const vector *normal, const uv *tex_coords, float ambient) {
   const auto obj = &scene->objects[hit_id];
@@ -57,6 +74,21 @@ __device__ vector phong(const S *scene, const ray *incoming, const vector *hit, 
   return final;
 }
 
+/**
+ * @brief Gets the color of a ray.
+ * @tparam S The type of the GPU scene
+ * @tparam bounces The maximal amount of bounces
+ * @param scene The GPU scene
+ * @param incoming The incoming ray
+ * @param min_t The minimal distance for a hit to be valid
+ * @param ambient The ambient lighting factor
+ * @return The color that the given ray should have
+ *
+ * This function relies on the `cutrace::gpu::phong` function to perform basic shading, then uses recursion to apply
+ * reflections and shading.
+ *
+ * @see cutrace::gpu::phong
+ */
 template <typename S, size_t bounces> requires(is_gpu_scene<S>)
 __device__ vector ray_color(const S *scene, const ray *incoming, float min_t, float ambient) {
   size_t id;
