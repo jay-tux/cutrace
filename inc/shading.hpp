@@ -11,12 +11,19 @@
  * @brief Main namespace for GPU-related code.
  */
 namespace cutrace::gpu {
+/**
+ * @brief Gets the shadow intensity for a ray.
+ * @tparam S The GPU scene type
+ * @param scene The GPU scene
+ * @param shadow_ray The ray
+ * @param max_dist The maximal distance (distance to the closest ray)
+ * @return The intensity of shadows along the ray (between 0.0 and 1.0)
+ */
 template <typename S> requires(impl::is_gpu_scene<S>)
 __device__ float shadow_intensity(const S *scene, const ray *shadow_ray, float max_dist) {
   float intensity = 0.0f;
   float last_hit = 0.0f;
   ray check{ .start = shadow_ray->start, .dir = shadow_ray->dir };
-  // ray_cast(scene, &shadow, 1e-3, &shadow_dist_raw, &h_, &unused, &unused, &tc, true);
   float dist, trans, ref;
   size_t h;
   vector hit{}, normal{};
@@ -67,7 +74,7 @@ __device__ vector phong(const S *scene, const ray *incoming, const vector *hit, 
 
   vector direction{};
   float distance = INFINITY;
-  
+
   for(const auto &light : scene->lights) {
     get_direction_to(light, hit, &direction, &distance);
     ray shadow{.start = *hit, .dir = direction.normalized()};
@@ -75,9 +82,6 @@ __device__ vector phong(const S *scene, const ray *incoming, const vector *hit, 
     vector color = get_color(light);
     vector nn = normal->normalized(), nd = direction.normalized();
 
-    /*bool did_hit = ray_cast(scene, &shadow, 1e-3, &shadow_dist_raw, &h_, &unused, &unused, &tc, true);
-    float shadow_dist = shadow_dist_raw * shadow.dir.norm();
-    if (!(did_hit && shadow_dist < light_dist))*/
     float shadow_fac = shadow_intensity(scene, &shadow, light_dist);
     if(shadow_fac < 1.0f){
       float fd = max(0.0f, nn.dot(nd));
