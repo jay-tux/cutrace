@@ -202,6 +202,14 @@ public:
   __host__ __device__ inline const T *get() const {
     return reinterpret_cast<const T *>(data);
   }
+
+  /**
+   * @brief Gets the index of the currently active type.
+   * @return The index of the currently active type
+   */
+  __host__ __device__ inline size_t get_idx() const {
+    return idx;
+  }
 };
 
 namespace impl {

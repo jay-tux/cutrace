@@ -1,9 +1,9 @@
 #include <iostream>
-#include <iomanip>
+#include "default_schema.hpp"
 #include "loader.hpp"
-#include "kernel_depth.hpp"
 #include "images.hpp"
-#include "kernel_prepare.hpp"
+#include "kernel.hpp"
+#include "grid.hpp"
 
 int main(int argc, const char **argv) {
   if(argc < 2) {
@@ -11,35 +11,37 @@ int main(int argc, const char **argv) {
     return -1;
   }
 
-  auto scene = cutrace::loader::load(argv[1]);
-  const auto &cam = scene.camera;
+  auto scene = cutrace::cpu::schema::default_schema::load_file(argv[1]);
 
-  std::cout << "Camera: \n"
-               "-> pos = v3(" << cam.pos.x << ", " << cam.pos.y << ", " << cam.pos.z << ")\n"
-               "-> up = v3(" << cam.up.x << ", " << cam.up.y << ", " << cam.up.z << ")\n"
-               "-> right = v3(" << cam.right.x << ", " << cam.right.y << ", " << cam.up.z << ")\n"
-               "-> forward = v3(" << cam.forward.x << ", " << cam.forward.y << ", " << cam.forward.z << ")\n";
+  if(!cutrace::cpu::schema::default_schema::last_was_success) {
+    cutrace::cpu::schema::default_schema_viewer::dump_schema();
+    return -2;
+  }
 
-  auto gpu_scene = scene.to_gpu();
-  cutrace::gpu::prepare_scene(gpu_scene, scene);
+  auto gpu_scene = cutrace::cpu::schema::default_to_gpu(scene);
+
+  cutrace::gpu::dump_scene(gpu_scene);
 
   float max_d;
-  cutrace::gpu::grid<float> depth_map;
-  cutrace::gpu::grid<cutrace::gpu::vector> color_map;
-  cutrace::gpu::grid<cutrace::gpu::vector> normal_map;
-  cutrace::gpu::render(scene.camera, gpu_scene, max_d, depth_map, color_map, normal_map);
+  cutrace::grid<float> depth_map;
+  cutrace::grid<cutrace::vector> color_map;
+  cutrace::grid<cutrace::vector> normal_map;
+  size_t render, total;
+  cutrace::gpu::render<decltype(gpu_scene), 5, 256>(gpu_scene, 1e-3, max_d, depth_map, color_map, normal_map, render, total);
+
+  std::cout << "Render time was " << render << " ms; kernel time with setup/teardown was " << total << " ms.\n";
+
   cutrace::write_depth_map("./depth_map.jpg", depth_map, max_d);
   cutrace::write_normal_map("./normal_map.jpg", normal_map);
   cutrace::write_colorized("./frame.jpg", color_map);
 
-  cutrace::gpu::cleanup(gpu_scene);
-
 //  for(const auto &row : depth_map) {
 //    for(const auto &elem : row) {
-//      std::cout << std::setw(7) << std::setprecision(3) << elem << "  ";
+//      std::cout << elem << "  ";
 //    }
 //    std::cout << "\n";
 //  }
 
+//  cutrace::gpu::cleanup(gpu_scene);
   return 0;
 }

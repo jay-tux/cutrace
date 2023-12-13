@@ -1,18 +1,14 @@
 //
-// Created by jay on 11/18/23.
+// Created by jay on 11/30/23.
 //
 
 #ifndef CUTRACE_GPU_TYPES_HPP
 #define CUTRACE_GPU_TYPES_HPP
 
-#include "vector.hpp"
 #include "gpu_variant.hpp"
+#include "vector.hpp"
 #include "gpu_array.hpp"
-#include "scene_subdiv.hpp"
 
-/**
- * @brief Main namespace for GPU-related code
- */
 namespace cutrace::gpu {
 /**
  * @brief Struct representing a ray.
@@ -23,188 +19,76 @@ struct ray {
 };
 
 /**
+ * @brief Concept relating what it means to be cleanable.
+ * @tparam T The type to check
+ *
+ * A cleanable type supports the `t.gpu_clean()` method.
+ */
+template <typename T>
+concept is_gpu_cleanable = requires(T &t) {
+  { t.gpu_clean() } -> std::same_as<void>;
+};
+
+/**
+ * @brief Cleans up an arbitrary cleanable GPU variant.
+ * @tparam Ts The types of the variant
+ */
+template <typename ... Ts> requires(is_gpu_cleanable<Ts> && ...)
+inline __host__ void gpu_clean(gpu_variant<Ts...> &v) {
+  auto visitor = []<typename T>(T *obj) { obj->gpu_clean(); };
+  visit(&visitor, &v);
+}
+
+/**
  * @brief Concept relating what it means to be a renderable object.
  * @tparam T The type to check
  *
  * For a type to construct objects that can be rendered, it needs to support the following (on a `const T &t`):
- *  - `t.intersect(const cutrace::gpu::ray *, float, cutrace::gpu::vector *, float *, cutrace::gpu::vector *) -> bool`, and
+ *  - `t.intersect(const cutrace::gpu::ray *, float, cutrace::vector *, float *, cutrace::vector *) -> bool`, and
  *  - `t.mat_idx` (a public field of type `size_t`).
  */
 template <typename T>
-concept is_object = requires(const T &t, const ray *r, float min_t, vector *p, float *dist, vector *normal) {
-  { t.intersect(r, min_t, p, dist, normal) } -> std::same_as<bool>;
+concept is_object = is_gpu_cleanable<T> && requires(const T &t, const ray *r, float min_t, vector *p, float *dist, vector *normal, uv *tex_coords) {
+  { t.intersect(r, min_t, p, dist, normal, tex_coords) } -> std::same_as<bool>;
   { t.mat_idx } -> std::same_as<const size_t &>;
 };
 
 /**
- * @brief A struct representing a single triangle. Triangle corners are expected to be counter-clockwise.
+ * @brief Type alias for a variant of GPU objects.
+ * @tparam Ts The GPU object types
  */
-struct triangle {
-  vector p1, //!< The first point of the triangle
-         p2, //!< The second point of the triangle
-         p3; //!< The third point of the triangle
-  size_t mat_idx; //!< The index of the material to render the triangle with
-
-  /**
-   * @brief Function to check if a ray intersects this triangle.
-   * @param[in] r The ray
-   * @param[in] min_t The minimal required parametric distance from the ray's origin to consider the intersection
-   * @param[out] hit The coordinates of the hit, if any
-   * @param[out] dist The parametric distance of the hit, if any
-   * @param[out] normal The normal at the point of the hit, if any
-   * @return True if there's an intersection, otherwise false.
-   */
-  __device__ bool intersect(const ray *r, float min_t, vector *hit, float *dist, vector *normal) const;
-};
+template <typename ... Ts> requires(is_object<Ts> && ...)
+using gpu_object_set = gpu_variant<Ts...>;
 
 /**
- * @brief A struct representing a set of triangles (usually loaded as a model).
- * @warning Candidate to be renamed to `model`
+ * @brief Performs intersection detection on an arbitrary GPU object.
+ * @tparam Ts The types of possible objects
+ * @param o The object variant
+ * @param r The incoming ray
+ * @param min_t The minimal parametric distance for an intersection to be valid
+ * @param[out] p The hit point, undefined if no hit took place
+ * @param[out] dist The parametric distance to the hit point, undefined if no hit took place
+ * @param[out] normal The normal vector in the hit point, undefined if no hit took place
+ * @param[out] tex_coords The texture coordinates at the hit point, undefined if no hit took place
+ * @return True if a hit took place, false otherwise
  */
-struct triangle_set {
-  gpu_array<triangle> triangles; //!< The triangles
-  size_t mat_idx; //!< The index of the material to render the model with
-  bound bounding_box; //!< The bounding box of the model, required for optimization
-
-  /**
-   * @brief Function to check if a ray intersects any triangle of this model.
-   * @param[in] r The ray
-   * @param[in] min_t The minimal required parametric distance from the ray's origin to consider the intersection
-   * @param[out] hit The coordinates of the hit, if any
-   * @param[out] dist The parametric distance of the hit, if any
-   * @param[out] normal The normal at the point of the hit, if any
-   * @return True if there's an intersection, otherwise false.
-   */
-  __device__ bool intersect(const ray *r, float min_t, vector *hit, float *dist, vector *normal) const;
-};
-
+template <typename ... Ts>
+inline __device__ bool get_intersect(const gpu_object_set<Ts...> &o, const ray *r, float min_t, vector *p, float *dist, vector *normal, uv *tex_coords) {
+  auto visitor = [r, min_t, p, dist, normal, tex_coords]<typename T>(const T *v) -> bool {
+    return v->intersect(r, min_t, p, dist, normal, tex_coords);
+  };
+  return visit(&visitor, &o);
+}
 /**
- * @brief Struct representing an infinite plane.
+ * @brief Gets the material index of an arbitrary GPU object.
+ * @tparam Ts The types of possible objects
+ * @param o The object variant
+ * @return The object's material index
  */
-struct plane {
-  vector point; //!< A point of this plane
-  vector normal; //!< The normal direction of this plane
-  size_t mat_idx; //!< The material index to render this plane with
-
-  /**
-   * @brief Function to check if a ray intersects this plane.
-   * @param[in] r The ray
-   * @param[in] min_t The minimal required parametric distance from the ray's origin to consider the intersection
-   * @param[out] hit The coordinates of the hit, if any
-   * @param[out] dist The parametric distance of the hit, if any
-   * @param[out] normal The normal at the point of the hit, if any
-   * @return True if there's an intersection, otherwise false.
-   */
-  __device__ bool intersect(const ray *r, float min_t, vector *hit, float *dist, vector *n) const;
-};
-
-/**
- * @brief Struct representing a sphere.
- */
-struct sphere {
-  vector center; //!< The center point of the sphere
-  float radius; //!< The radius of the sphere
-  size_t mat_idx; //!< The index of the material to render this sphere with
-
-  /**
-   * @brief Function to check if a ray intersects this sphere.
-   * @param[in] r The ray
-   * @param[in] min_t The minimal required parametric distance from the ray's origin to consider the intersection
-   * @param[out] hit The coordinates of the hit, if any
-   * @param[out] dist The parametric distance of the hit, if any
-   * @param[out] normal The normal at the point of the hit, if any
-   * @return True if there's an intersection, otherwise false.
-   */
-  __device__ bool intersect(const ray *r, float min_t, vector *hit, float *dist, vector *normal) const;
-};
-
-static_assert(is_object<triangle>);
-static_assert(is_object<triangle_set>);
-static_assert(is_object<plane>);
-static_assert(is_object<sphere>);
-
-/**
- * @brief Type alias for a gpu object: either a @ref{cutrace::gpu::triangle}, @ref{cutrace::gpu::triangle_set}, @ref{cutrace::gpu::plane}, or @ref{cutrace::gpu::sphere}.
- */
-using gpu_object = gpu_variant<triangle, triangle_set, plane, sphere>;
-
-/**
- * @brief Visitor struct to check for intersections (to be replaced).
- * @warning Will be deprecated in favor of a lambda function inside the @ref{cutrace::gpu::intersects} function.
- */
-struct intersect {
-  const ray *r; //!< The input ray
-  vector out; //!< The output hit point, if any
-  const float min_t; //!< The input minimal distance
-  float dist; //!< The output parametric distance to the hit point, if any
-  vector normal; //!< The output normal vector in the hit point, if any
-
-  /**
-   * @brief Creates a new intersection visitor.
-   * @param r The ray to intersect with
-   * @param min_t The minimal parametric distance
-   */
-  __device__ inline intersect(const ray *r, const float min_t) noexcept :
-    r{r}, min_t{min_t}, out{0,0,0}, dist{0.0f}, normal{0.0f, 0.0f, 0.0f} {}
-
-  /**
-   * @brief Performs the intersection detection on a \ref cutrace::gpu::triangle.
-   * @param o The triangle to intersect with
-   * @return True if there is an intersection, false otherwise
-   * @see cutrace::gpu::triangle::intersect
-   */
-  __device__ inline bool operator()(const triangle *o) {
-    return o->intersect(r, min_t, &out, &dist, &normal);
-  }
-
-  /**
-   * @brief Performs the intersection detection on a \ref cutrace::gpu::triangle_set.
-   * @param o The model to intersect with
-   * @return True if there is an intersection, false otherwise
-   * @see cutrace::gpu::triangle_set::intersect
-   */
-  __device__ inline bool operator()(const triangle_set *o) {
-    return o->intersect(r, min_t, &out, &dist, &normal);
-  }
-
-  /**
-   * @brief Performs the intersection detection on a \ref cutrace::gpu::plane.
-   * @param o The plane to intersect with
-   * @return True if there is an intersection, false otherwise
-   * @see cutrace::gpu::plane::intersect
-   */
-  __device__ inline bool operator()(const plane *o) {
-    return o->intersect(r, min_t, &out, &dist, &normal);
-  }
-
-  /**
-   * @brief Performs the intersection detection on a \ref cutrace::gpu::sphere.
-   * @param o The sphere to intersect with
-   * @return True if there is an intersection, false otherwise
-   * @see cutrace::gpu::sphere::intersect
-   */
-  __device__ inline bool operator()(const sphere *o) {
-    return o->intersect(r, min_t, &out, &dist, &normal);
-  }
-};
-
-/**
- * @brief Function which performs intersection detection on a \ref cutrace::gpu::gpu_object.
- * @param[in] r The ray
- * @param[in] obj The object to check for intersections with
- * @param[in] min_t The minimal required parametric distance from the ray's origin to consider the intersection
- * @param[out] out The coordinates of the hit, if any
- * @param[out] dist The parametric distance of the hit, if any
- * @param[out] normal_at The normal at the point of the hit, if any
- * @return True if there's an intersection, otherwise false.
- */
-__device__ inline bool intersects(const ray *r, const gpu_object *obj, float min_t, vector *out, float *dist, vector *normal_at) {
-  intersect functor(r, min_t);
-  auto res = visit(&functor, obj);
-  *out = functor.out;
-  *dist = functor.dist;
-  *normal_at = functor.normal;
-  return res;
+template <typename ... Ts>
+inline __host__ __device__ size_t get_mat_idx(const gpu_object_set<Ts...> &o) {
+  auto visitor = []<typename T>(const T *v) -> size_t { return v->mat_idx; };
+  return visit(&visitor, &o);
 }
 
 /**
@@ -212,148 +96,195 @@ __device__ inline bool intersects(const ray *r, const gpu_object *obj, float min
  * @tparam T The type to check
  *
  * For a type to construct objects that are lights, it needs to support the following (on a `const T &t`):
- *  - `t.direction_to(const cutrace::gpu::vector *, cutrace::gpu::vector *, float *) -> void`, and
- *  - `t.color` (a public field of type `cutrace::gpu::vector`).
+ *  - `t.direction_to(const cutrace::vector *, cutrace::vector *, float *) -> void`, and
+ *  - `t.color` (a public field of type `cutrace::vector`).
  */
 template <typename T>
-concept is_light = requires(const T &t, const vector *point, vector *dir, float *dist) {
+concept is_light = is_gpu_cleanable<T> && requires(const T &t, const vector *point, vector *dir, float *dist) {
   { t.direction_to(point, dir, dist) } -> std::same_as<void>;
   { t.color } -> std::same_as<const vector &>;
 };
 
 /**
- * @brief Struct representing a sun (directional light).
+ * @brief Type alias for a variant of GPU lights.
+ * @tparam Ts The GPU light types
  */
-struct sun {
-  vector direction; //!< The direction of the light
-  vector color; //!< The color of the light
-
-  /**
-   * @brief Gets the direction from a point towards the light, as well as the parametric distance.
-   * @param [in] point The query point
-   * @param [out] direction The direction from the point towards the light
-   * @param [out] distance The parametric distance
-   *
-   * The actual distance can be computed by multiplying the output parametric distance by the direction's norm.
-   * In this case, the direction is always `-this->direction` and the distance is always considered to be infinite.
-   */
-  __device__ void direction_to(const vector *point, vector *direction, float *distance) const;
-};
+template <typename ... Ts> requires(is_light<Ts> && ...)
+using gpu_light_set = gpu_variant<Ts...>;
 
 /**
- * @brief Struct representing a point light.
+ * @brief Gets the direction and distance from a point to an arbitrary light.
+ * @tparam Ts The possible light types
+ * @param l The light variant
+ * @param point The point of intersection
+ * @param[out] direction The direction from the point to the light
+ * @param[out] distance The parametric distance from the point to the light
+ * 
+ * The distance is parametric relative to the direction vector.
  */
-struct point_light {
-  vector point; //!< The point where the light is shining from
-  vector color; //!< The color of the light
-
-  /**
-   * @brief Gets the direction from a point towards the light, as well as the parametric distance.
-   * @param [in] point The query point
-   * @param [out] direction The direction from the point towards the light
-   * @param [out] distance The parametric distance
-   *
-   * The actual distance can be computed by multiplying the output parametric distance by the direction's norm.
-   * In this case, the direction is always the difference `*point - *this->point` normalized, and the distance is the
-   * non-normalized norm of the difference above.
-   */
-  __device__ void direction_to(const vector *point, vector *direction, float *distance) const;
-};
-
-static_assert(is_light<sun>);
-static_assert(is_light<point_light>);
-
-/**
- * @brief Type alias for a gpu light: either a \ref cutrace::gpu::sun, or a \ref cutrace::gpu::point_light.
- */
-using gpu_light = gpu_variant<sun, point_light>;
-
-/**
- * @brief Visitor struct to get the direction towards a light (to be replaced).
- * @warning Will be deprecated in favor of a lambda function inside the \ref cutrace::gpu::direction_to function.
- */
-struct director {
-  const vector *point; //!< The input point
-  vector direction; //!< The output direction
-  float distance; //!< The output parametric distance
-
-  /**
-   * @brief Gets the direction towards a \ref cutrace::gpu::sun.
-   * @param l The sun/directional light to get the direction towards
-   * @see cutrace::gpu::sun::direction_to
-   */
-  __device__ inline void operator()(const sun *l) {
-    return l->direction_to(point, &direction, &distance);
-  }
-
-  /**
-   * @brief Gets the direction towards a \ref cutrace::gpu::point_light.
-   * @param l The sun/directional light to get the direction towards
-   * @see cutrace::gpu::point_light::direction_to
-   */
-  __device__ inline void operator()(const point_light *l) {
-    return l->direction_to(point, &direction, &distance);
-  }
-};
-
-/**
- * @brief Function to get the direction to a light.
- * @param [in] point The query point
- * @param [in] light The light to get the direction towards
- * @param [out] direction The direction from the point towards the light
- * @param [out] distance The parametric distance along the direction
- */
-__device__ inline void direction_to(const vector *point, const gpu_light *light, vector *direction, float *distance) {
-  director functor(point, {}, 0.0f);
-  visit(&functor, light);
-  *direction = functor.direction;
-  *distance = functor.distance;
+template <typename ... Ts>
+inline __device__ void get_direction_to(const gpu_light_set<Ts...> &l, const vector *point, vector *direction, float *distance) {
+  auto visitor = [point, direction,distance]<typename T>(const T *v) {
+    v->direction_to(point, direction, distance);
+  };
+  visit(&visitor, &l);
 }
 
 /**
- * @brief Struct representing a material.
+ * @brief Gets the color of an arbitrary light.
+ * @tparam Ts The types of possible lights
+ * @param l The light variant
+ * @return The light color
  */
-struct gpu_mat {
-  vector color; //!< The base color of the material
-  float specular, //!< The specular factor for the material (how smooth/shiny it is)
-        reflexivity, //!< The reflexivity factor for the material (how much it reflects/mirrors)
-        phong_exp, //!< The Phong lighting exponent for the material
-        transparency; //!< The transparency/translucency factor for the material
+template <typename ... Ts>
+constexpr __host__ __device__ vector get_color(const gpu_light_set<Ts...> &l) {
+  auto visitor = []<typename T>(const T *v) { return v->color; };
+  return visit(&visitor, &l);
+}
+
+/**
+ * @brief Concept relating what it means to be a material.
+ * @tparam T The type to check
+ * 
+ * To be a material, a type must support (for `const T &t`):
+ *  - `t.get_phong_params(const cutrace::vector *, const cutrace::uv *, cutrace::vector *, cutrace::vector *, float *, float *) -> void`
+ *  - `t.is_transparent() -> bool`
+ *  - `t.is_reflecting() -> bool`
+ *  - `t.get_bounce_params(const cutrace::vector *, const cutrace::uv *, float *, float *) -> void`
+ */
+template <typename T>
+concept is_material = is_gpu_cleanable<T> && requires(const T &t, const vector *normal, const uv *tc, vector *col, vector *spec, float *ref, float *tran, float *phong) {
+  { t.get_phong_params(normal, tc, col, spec, ref, tran, phong) } -> std::same_as<void>;
+  { t.is_transparent() } -> std::same_as<bool>;
+  { t.is_reflecting() } -> std::same_as<bool>;
+  { t.get_bounce_params(normal, tc, ref, tran) } -> std::same_as<void>;
 };
 
 /**
- * @brief Struct representing a camera
+ * @brief Type alias for a variant of GPU materials.
+ * @tparam Ts The GPU material types
  */
-struct cam {
-  vector pos = { 0.0f, 0.0f, 0.0f }; //!< Eye position of the camera
-  vector up = { 0.0f, 1.0f, 0.0f }; //!< Up direction for the camera
-  vector forward = { 0.0f, 0.0f, 1.0f }; //!< Forward direction for the camera (look-at)
-  vector right = { 1.0f, 0.0f, 0.0f }; //!< Right direction for the camera
-  float near = 0.1f, //!< Distance to the near plane (unused)
-        far = 100.0f; //!< Distance to the far plane (unused)
-  size_t w = 1920, //!< The width of the image to be rendered
-         h = 1080; //!< The height of the image to be rendered
+template <typename ... Ts>
+using gpu_material_set = gpu_variant<Ts...>;
 
-  /**
-   * @brief Computes all directions, given a point to look at.
-   * @param [in] v The point to look at
-   *
-   * This function requires an estimate of the up direction, and computes (in this order):
-   *  - The forward direction,
-   *  - The right direction (by using a cross-product between forward and up),
-   *  - The (correct) up direction (by using a cross-product between up and right).
-   */
-  __host__ void look_at(const vector &v);
+/**
+ * @brief Gets the Phong parameters of an arbitrary material
+ * @tparam Ts The possible material types
+ * @param m The material variant
+ * @param normal The normal at the point of intersection
+ * @param tc The texture coordinates at the point of intersection
+ * @param[out] col The diffuse color of the material at the point of intersection
+ * @param[out] spec The specular color of the material at the point of intersection
+ * @param[out] ref The reflexivity factor of the material at the point of intersection
+ * @param[out] trans The translucency factor of the material at the point of intersection
+ * @param[out] phong The Phong-exponent of the material at the point of intersection
+ */
+template <typename ... Ts>
+constexpr __device__ void get_phong_params(const gpu_material_set<Ts...> &m, const vector *normal, const uv *tc, vector *col, vector *spec, float *ref, float *trans, float *phong) {
+  auto visitor = [normal, tc, col, spec, ref, trans, phong]<typename T>(const T *v) {
+    v->get_phong_params(normal, tc, col, spec, ref, trans, phong);
+  };
+  visit(&visitor, &m);
+}
+
+/**
+ * @brief Detects whether an arbitrary material is transparent.
+ * @tparam Ts The possible material types
+ * @param m The material variant
+ * @return True if the material is transparent, false otherwise
+ */
+template <typename ... Ts>
+constexpr __device__ bool is_transparent(const gpu_material_set<Ts...> &m) {
+  auto visitor = []<typename T>(const T *v) { return v->is_transparent(); };
+  return visit(&visitor, &m);
+}
+
+/**
+ * @brief Detects whether an arbitrary material has any mirror-like reflections.
+ * @tparam Ts The possible material types
+ * @param m The material variant
+ * @return True if the material has mirror-like reflections, false otherwise
+ */
+template <typename ... Ts>
+constexpr __device__ bool is_reflecting(const gpu_material_set<Ts...> &m) {
+  auto visitor = []<typename T>(const T *v) { return v->is_reflecting(); };
+  return visit(&visitor, &m);
+}
+
+/**
+ * @brief Gets the bounce parameters (reflexivity, translucency) of an arbitrary material.
+ * @tparam Ts The possible material types
+ * @param m The material variant
+ * @param normal The normal of the material at the point of intersection
+ * @param tc The texture coordinates of the material at the point of intersection
+ * @param[out] ref The reflexivity factor of the material at the point of intersection
+ * @param[out] trans The translucency factor of the material at the point of intersection
+ */
+template <typename ... Ts>
+constexpr __device__ void get_bounce_params(const gpu_material_set<Ts...> &m, const vector *normal, const uv *tc, float *ref, float *trans) {
+  auto visitor = [normal, tc, ref, trans]<typename T>(const T *v) {
+    v->get_bounce_params(normal, tc, ref, trans);
+  };
+  visit(&visitor, &m);
+}
+
+/**
+ * @brief Concept relating what it means to be a camera.
+ * @tparam T The type to check
+ *
+ * To be a camera, a type needs to support (for `const T &t`):
+ *  - `t.get_bounds(size_t *, size_t *) -> void`
+ *  - `t.get_ray(size_t, size_t) -> cutrace::ray`
+ *  - `t.get_ambient() -> float`
+ */
+template <typename T>
+concept is_camera = is_gpu_cleanable<T> && requires(const T &t, size_t x, size_t y, size_t *w, size_t *h) {
+  { t.get_bounds(w, h) } -> std::same_as<void>;
+  { t.get_ray(x, y) } -> std::same_as<ray>;
+  { t.get_ambient() } -> std::same_as<float>;
 };
 
 /**
- * @brief Struct containing all information to render a scene on GPU.
+ * @brief Structure representing a scene on GPU.
+ * @tparam O The object variant type
+ * @tparam L The light variant type
+ * @tparam M The material variant type
+ * @tparam C The camera type
  */
-struct gpu_scene {
-  gpu_array<gpu_object> objects; //!< The objects to be rendered
-  gpu_array<gpu_light> lights; //!< The lights to render with
-  gpu_array<gpu_mat> materials; //!< All used materials in the scene
+template <typename O, typename L, typename M, typename C> struct gpu_scene_;
+
+/**
+ * @brief Structure representing a scene on GPU.
+ * @tparam Os The object types
+ * @tparam Ls The light types
+ * @tparam Ms The material types
+ * @tparam C The camera type
+ */
+template <typename ... Os, typename ... Ls, typename ... Ms, typename C>
+struct gpu_scene_<gpu_object_set<Os...>, gpu_light_set<Ls...>, gpu_material_set<Ms...>, C> {
+  using object = gpu_object_set<Os...>; //!< Type alias for the object variant type
+  using light = gpu_light_set<Ls...>; //!< Type alias for the light variant type
+  using material = gpu_material_set<Ms...>; //!< Type alias for the material variant type
+  using camera = C; //!< Type alias for the camera type
+
+  gpu_array<object> objects; //!< All objects in the scene
+  gpu_array<light> lights; //!< All lights in the scene
+  gpu_array<material> materials; //!< All materials in the scene
+  camera cam; //!< The camera to render the scene with
 };
+
+namespace impl {
+template<typename T>
+struct is_gpu_scene_t : std::bool_constant<false> {
+};
+template<typename ... Os, typename ... Ls, typename ... Ms, typename C>
+struct is_gpu_scene_t<gpu_scene_<gpu_object_set<Os...>, gpu_light_set<Ls...>, gpu_material_set<Ms...>, C>> :
+        std::bool_constant<true> {
+};
+
+template<typename T>
+concept is_gpu_scene = is_gpu_scene_t<T>::value;
+}
 }
 
 #endif //CUTRACE_GPU_TYPES_HPP

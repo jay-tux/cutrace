@@ -1,5 +1,6 @@
 [requires]
 assimp/5.2.2
+catch2/3.4.0
 
 [generators]
 CMakeDeps
