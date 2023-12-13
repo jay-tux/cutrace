@@ -664,7 +664,7 @@ struct full_schema<all_objects_schema<Os...>, all_lights_schema<Ls...>, all_mate
   using light_t = light_schema::any; //!< The `std::variant` that the light schema loads.
   using material_t = material_schema::any; //!< The `std::variant` that the material schema loads.
   using cam_t = C; //!< The type that the camera schema loads.
-  using scene_t = cpu::cpu_scene_<object_t, light_t, material_t, cam_t>; //!< The type of the CPU scene that this loader loads.
+  using scene_t = cpu::cpu_scene<object_t, light_t, material_t, cam_t>; //!< The type of the CPU scene that this loader loads.
 
   static inline bool last_was_success = true; //!< Keeps track of whether the last load was successful.
 

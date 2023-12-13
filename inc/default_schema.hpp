@@ -16,6 +16,9 @@
 #include "ray_cast.hpp"
 #include "schema_view.hpp"
 
+/**
+ * @brief Namespace for the default schema types on GPU.
+ */
 namespace cutrace::gpu::schema {
 /**
  * @brief A struct representing a single triangle. Triangle corners are expected to be counter-clockwise.
@@ -26,6 +29,11 @@ struct triangle {
          p3; //!< The third point of the triangle
   size_t mat_idx; //!< The index of the material to render the triangle with
 
+  /**
+   * @brief Gets the UV-coordinates for a given point.
+   * @param point The point
+   * @return The UV-coordinates
+   */
   __device__ constexpr uv uv_for(const vector *point) const {
     vector p2p1 = p2 - p1, p3p1 = p3 - p1, xp1 = *point - p1;
     vector proj_u = xp1.dot(p2p1) / p2p1.dot(p2p1) * p2p1,
@@ -69,6 +77,9 @@ struct triangle {
     return false;
   }
 
+  /**
+   * @brief Cleans up all used resources on GPU
+   */
   __host__ inline void gpu_clean() {}
 };
 
@@ -80,6 +91,11 @@ struct mesh {
   size_t mat_idx; //!< The index of the material to render the model with
   bound bounding_box; //!< The bounding box of the model, required for optimization
 
+  /**
+   * @brief Checks if a ray intersects the mesh's bounding box.
+   * @param r The ray
+   * @return True if there's an intersection, false otherwise
+   */
   __device__ constexpr bool bound_intersects(const ray *r) const {
     // from https://tavianator.com/2022/ray_box_boundary.html
     float tmin = 0.0, tmax = INFINITY;
@@ -127,6 +143,9 @@ struct mesh {
     return *dist != INFINITY;
   }
 
+  /**
+   * @brief Cleans up all resources used on the GPU.
+   */
   __host__ inline void gpu_clean() {
     cudaCheck(cudaFree(triangles.buffer))
     triangles.buffer = nullptr;
@@ -142,6 +161,11 @@ struct plane {
   vector normal; //!< The normal direction of this plane
   size_t mat_idx; //!< The material index to render this plane with
 
+  /**
+   * @brief Gets the UV-coordinates for a point on the plane.
+   * @param p The point
+   * @return The UV-coordinates
+   */
   __device__ constexpr uv uv_for(const vector *p) const {
     vector ax1 = vector{ normal.y, -normal.x, 0.0f }.normalized();
     vector ax2 = normal.cross(ax1);
@@ -176,6 +200,9 @@ struct plane {
     return false;
   }
 
+  /**
+   * @brief Cleans up all resources used on the GPU.
+   */
   __host__ inline void gpu_clean() {}
 };
 
@@ -223,13 +250,16 @@ struct sphere {
     return true;
   }
 
+  /**
+   * @brief Cleans up all resources used on the GPU.
+   */
   __host__ inline void gpu_clean() {}
 };
 
-//static_assert(is_object<triangle>);
-//static_assert(is_object<mesh>);
-//static_assert(is_object<plane>);
-//static_assert(is_object<sphere>);
+static_assert(is_object<triangle>);
+static_assert(is_object<mesh>);
+static_assert(is_object<plane>);
+static_assert(is_object<sphere>);
 
 /**
  * @brief Struct representing a sun (directional light).
@@ -368,29 +398,50 @@ struct cam {
 //static_assert(is_camera<cam>);
 }
 
+/**
+ * @brief Namespace for the default schema types on CPU.
+ */
 namespace cutrace::cpu::schema {
+/**
+ * @brief Namespace for the default values for the schemas.
+ */
 namespace defaults {
+/**
+ * @brief Compile-time constant for the black/zero vector.
+ */
 struct black {
-  constexpr const static vector value{0.0f, 0.0f, 0.0f};
+  constexpr const static vector value{0.0f, 0.0f, 0.0f}; //!< The black/zero vector.
 };
 
+/**
+ * @brief Compile-time constant for the up vector (y=1).
+ */
 struct up {
-  constexpr const static vector value{0.0f, 1.0f, 0.0f};
+  constexpr const static vector value{0.0f, 1.0f, 0.0f}; //!< The up vector.
 };
 
+/**
+ * @brief Compile-time constant for the forward vector (z=1).
+ */
 struct forward {
-  constexpr const static vector value{0.0f, 0.0f, 1.0f};
+  constexpr const static vector value{0.0f, 0.0f, 1.0f}; //!< The forward vector.
 };
 
+/**
+ * @brief Compile-time constant for the right vector (x=1).
+ */
 struct right {
-  constexpr const static vector value{1.0f, 0.0f, 0.0f};
+  constexpr const static vector value{1.0f, 0.0f, 0.0f}; //!< The right vector.
 };
 
+/**
+ * @brief Compile-time constant for the white/all-ones vector.
+ */
 struct white {
-  constexpr const static vector value{1.0f, 1.0f, 1.0f};
+  constexpr const static vector value{1.0f, 1.0f, 1.0f}; //!< The white/one vector.
 };
 
-#define DEFAULT_FLOAT(name, init) struct name { constexpr const static float value = init; }
+#define DEFAULT_FLOAT(name, init) /** @brief Compile-time float value. */struct name { constexpr const static float value = init; }
 DEFAULT_FLOAT(zero, 0.0f);
 DEFAULT_FLOAT(point_one, 0.1f);
 DEFAULT_FLOAT(point_three, 0.3f);
@@ -398,31 +449,50 @@ DEFAULT_FLOAT(thirty_two, 32.0f);
 DEFAULT_FLOAT(one_hundred, 100.0f);
 #undef DEFAULT_FLOAT
 
-struct default_width : std::integral_constant<size_t, 1920> {};
-struct default_height : std::integral_constant<size_t, 1080> {};
+struct default_width : std::integral_constant<size_t, 1920> {}; //!< Compile-time constant 1920.
+struct default_height : std::integral_constant<size_t, 1080> {}; //!< Compile-time constant 1080.
 }
 
 #define ARGUMENT(name, type) loader_argument<name, type, mandatory>
 #define OPTIONAL(name, type, def) loader_argument<name, type, def>
 #define MK_MANDATORY(x) loader_argument<x::n, x::type, mandatory>
 
+/**
+ * @brief Struct representing a triangle.
+ */
 struct triangle {
-  vector p1, p2, p3;
-  size_t mat_idx;
+  vector p1, //!< The first point
+         p2, //!< The second point
+         p3; //!< The third point
+  size_t mat_idx; //!< The material index
 
+  /**
+   * @brief Constructs a new triangle
+   * @param p1 The first point
+   * @param p2 The second point
+   * @param p3 The third point
+   * @param mat_idx The material index
+   */
   constexpr triangle(vector p1, vector p2, vector p3, size_t mat_idx)
           : p1{p1}, p2{p2}, p3{p3}, mat_idx{mat_idx} {}
 
+  /**
+   * @brief Converts this triangle to GPU.
+   * @return The GPU representation
+   */
   [[nodiscard]] inline gpu::schema::triangle to_gpu() const {
     return { p1.to_gpu(), p2.to_gpu(), p3.to_gpu(), mat_idx };
   }
 
-  constexpr const static char name[] = "triangle";
-  constexpr const static char arg_p1[] = "p1";
-  constexpr const static char arg_p2[] = "p2";
-  constexpr const static char arg_p3[] = "p3";
-  constexpr const static char arg_mat_idx[] = "material";
+  constexpr const static char name[] = "triangle"; //!< The type to use in the JSON schema
+  constexpr const static char arg_p1[] = "p1"; //!< The argument name for the first point
+  constexpr const static char arg_p2[] = "p2"; //!< The argument name for the second point
+  constexpr const static char arg_p3[] = "p3"; //!< The argument name for the third point
+  constexpr const static char arg_mat_idx[] = "material"; //!< The argument name for the material index
 
+  /**
+   * @brief Type alias for the triangle schema.
+   */
   using schema = object_schema<name, triangle,
     ARGUMENT(arg_p1, vector),
     ARGUMENT(arg_p2, vector),
@@ -431,10 +501,18 @@ struct triangle {
   >;
 };
 
+/**
+ * @brief Struct representing a mesh.
+ */
 struct mesh {
-  std::vector<triangle> tris;
-  size_t mat_idx;
+  std::vector<triangle> tris; //!< The triangles of the mesh
+  size_t mat_idx; //!< The material index
 
+  /**
+   * @brief Loads a mesh from file.
+   * @param file The file to load
+   * @param mat_idx The material index
+   */
   inline mesh(const std::string &file, size_t mat_idx) : tris{}, mat_idx{mat_idx} {
     Assimp::Importer imp;
     const aiScene *scene = imp.ReadFile(
@@ -466,14 +544,32 @@ struct mesh {
     }
   }
 
+  /**
+   * @brief Computes the minimum of three values
+   * @param f1 The first value
+   * @param f2 The second value
+   * @param f3 The third value
+   * @return The minimum
+   */
   __host__ constexpr static float min3(float f1, float f2, float f3) {
     return std::min(std::min(f1, f2), f3);
   }
 
+  /**
+   * @brief Computes the maximum of three values
+   * @param f1 The first value
+   * @param f2 The second value
+   * @param f3 The third value
+   * @return The maximum
+   */
   __host__ constexpr static float max3(float f1, float f2, float f3) {
     return std::max(std::max(f1, f2), f3);
   }
 
+  /**
+   * @brief Computes the bounding box of this mesh.
+   * @return The AABB
+   */
   [[nodiscard]] __host__ inline bound bounding_box() const {
     bound res = bound::incorrect();
     for(const auto &tri: tris) {
@@ -489,35 +585,59 @@ struct mesh {
     return res;
   }
 
+  /**
+   * @brief Converts this mesh to GPU.
+   * @return The GPU representation
+   */
   [[nodiscard]] inline gpu::schema::mesh to_gpu() const {
     return { cpu2gpu::vec_to_gpu<triangle, gpu::schema::triangle>(tris), mat_idx, bounding_box() };
   }
 
-  constexpr const static char name[] = "mesh";
-  constexpr const static char arg_file[] = "file";
-  constexpr const static char arg_mat_idx[] = "material";
+  constexpr const static char name[] = "mesh"; //!< The type to use in the JSON schema
+  constexpr const static char arg_file[] = "file"; //!< The name of the file argument
+  constexpr const static char arg_mat_idx[] = "material"; //!< The name of the material index argument
 
+  /**
+   * @brief Type alias for the mesh schema.
+   */
   using schema = object_schema<name, mesh,
     ARGUMENT(arg_file, std::string),
     ARGUMENT(arg_mat_idx, size_t)
   >;
 };
 
+/**
+ * @brief Struct representing a plane.
+ */
 struct plane {
-  vector point, normal;
-  size_t mat_idx;
+  vector point, //!< Any point on this plane
+         normal; //!< The normal to this plane
+  size_t mat_idx; //!< The material index
 
+  /**
+   * @brief Constructs a new plane
+   * @param point Any point on the plane
+   * @param normal The normal to the plane
+   * @param mat_idx The material index
+   */
   constexpr plane(vector point, vector normal, size_t mat_idx) : point{point}, normal{normal}, mat_idx{mat_idx} {}
 
+  /**
+   * @brief Converts this plane to GPU.
+   * @return The GPU representation
+   */
   [[nodiscard]] inline gpu::schema::plane to_gpu() const {
     return { point.to_gpu(), normal.to_gpu(), mat_idx };
   }
 
-  constexpr const static char name[] = "plane";
-  constexpr const static char arg_point[] = "point";
-  constexpr const static char arg_normal[] = "normal";
-  constexpr const static char arg_mat_idx[] = "material";
+  constexpr const static char name[] = "plane"; //!< The type to use in the JSON schema
+  constexpr const static char arg_point[] = "point"; //!< The name of the point argument
+  constexpr const static char arg_normal[] = "normal"; //!< The name of the normal argument
+  constexpr const static char arg_mat_idx[] = "material"; //!< The name of the material index argument
 
+  /**
+   * @brief Type alias for the plane schema.
+   */
   using schema = object_schema<name, plane,
     ARGUMENT(arg_point, vector),
     ARGUMENT(arg_normal, vector),
@@ -525,22 +645,38 @@ struct plane {
   >;
 };
 
+/**
+ * @brief Struct representing a sphere.
+ */
 struct sphere {
-  vector center;
-  float radius;
-  size_t mat_idx;
+  vector center; //!< The center of this sphere
+  float radius; //!< The radius of this sphere
+  size_t mat_idx; //!< The material index
 
+  /**
+   * @brief Constructs a new sphere
+   * @param center The center of the sphere
+   * @param radius The radius of the sphere
+   * @param mat_idx The material index
+   */
   constexpr sphere(vector center, float radius, size_t mat_idx) : center{center}, radius{radius}, mat_idx{mat_idx} {}
 
+  /**
+   * @brief Converts this sphere to GPU.
+   * @return The GPU representation
+   */
   [[nodiscard]] inline gpu::schema::sphere to_gpu() const {
     return { center.to_gpu(), radius, mat_idx };
   }
 
-  constexpr const static char name[] = "sphere";
-  constexpr const static char arg_center[] = "center";
-  constexpr const static char arg_radius[] = "radius";
-  constexpr const static char arg_mat_idx[] = "material";
+  constexpr const static char name[] = "sphere"; //!< The type to use in the JSON schema
+  constexpr const static char arg_center[] = "center"; //!< The name of the center argument
+  constexpr const static char arg_radius[] = "radius"; //!< The name of the radius argument
+  constexpr const static char arg_mat_idx[] = "material"; //!< The name of the material index argument
 
+  /**
+   * @brief Type alias for the sphere schema.
+   */
   using schema = object_schema<name, sphere,
     ARGUMENT(arg_center, vector),
     ARGUMENT(arg_radius, float),
@@ -553,40 +689,75 @@ static_assert(cpu2gpu::cpu_gpu_object_pair<mesh, gpu::schema::mesh>);
 static_assert(cpu2gpu::cpu_gpu_object_pair<plane, gpu::schema::plane>);
 static_assert(cpu2gpu::cpu_gpu_object_pair<sphere, gpu::schema::sphere>);
 
+/**
+ * @brief Type alias for the default object schema (triangle, mesh, plane, and sphere).
+ */
 using default_objects_schema = all_objects_schema<triangle::schema, mesh::schema, plane::schema, sphere::schema>;
 
+/**
+ * @brief Struct representing a sun
+ */
 struct sun {
-  vector direction, color;
+  vector direction, //!< The direction this directional light is shining in
+         color; //!< The color of this light
 
+  /**
+   * @brief Constructs a new sun.
+   * @param direction The direction
+   * @param color The color
+   */
   constexpr sun(vector direction, vector color) : direction{direction}, color{color} {}
 
+  /**
+   * @brief Converts this sun to GPU.
+   * @return The GPU representation
+   */
   [[nodiscard]] inline gpu::schema::sun to_gpu() const {
     return { direction.to_gpu(), color.to_gpu() };
   }
 
-  constexpr const static char name[] = "sun";
-  constexpr const static char arg_direction[] = "direction";
-  constexpr const static char arg_color[] = "color";
+  constexpr const static char name[] = "sun"; //!< The type to use in the JSON schema
+  constexpr const static char arg_direction[] = "direction"; //!< The name of the direction argument
+  constexpr const static char arg_color[] = "color"; //!< The name of the color argument
 
+  /**
+   * @brief Type alias for the sun schema.
+   */
   using schema = light_schema<name, sun,
     ARGUMENT(arg_direction, vector),
     OPTIONAL(arg_color, vector, defaults::white)
   >;
 };
 
+/**
+ * @brief Struct representing a point light.
+ */
 struct point_light {
-  vector point, color;
+  vector point, //!< The point from which the light shines
+         color; //!< The color of the light
 
+  /**
+   * @brief Constructs a new point light.
+   * @param point The point to use
+   * @param color The color of the light
+   */
   constexpr point_light(vector point, vector color) : point{point}, color{color} {}
 
+  /**
+   * @brief Converts this point light to GPU.
+   * @return The GPU representation
+   */
   [[nodiscard]] inline gpu::schema::point_light to_gpu() const {
     return { point.to_gpu(), color.to_gpu() };
   }
 
-  constexpr const static char name[] = "point";
-  constexpr const static char arg_point[] = "point";
-  constexpr const static char arg_color[] = "color";
+  constexpr const static char name[] = "point"; //!< The type to use in the JSON schema
+  constexpr const static char arg_point[] = "point"; //!< The name of the point argument
+  constexpr const static char arg_color[] = "color"; //!< The name of the color argument
 
+  /**
+   * @brief Type alias for the point light schema.
+   */
   using schema = light_schema<name, point_light,
     ARGUMENT(arg_point, vector),
     OPTIONAL(arg_color, vector, defaults::white)
@@ -596,26 +767,51 @@ struct point_light {
 static_assert(cpu2gpu::cpu_gpu_light_pair<sun, gpu::schema::sun>);
 static_assert(cpu2gpu::cpu_gpu_light_pair<point_light, gpu::schema::point_light>);
 
+/**
+ * @brief Type alias for the default light schema (sun, and point light).
+ */
 using default_lights_schema = all_lights_schema<sun::schema, point_light::schema>;
 
+/**
+ * @brief Struct representing a solid-color Phong material.
+ */
 struct solid_material {
-  vector color;
-  float specular, reflexivity, phong_exp, transparency;
+  vector color; //!< The base color of the material
+  float specular, //!< How specular the material is
+        reflexivity, //!< How mirror-like the material is
+        phong_exp, //!< The Phong exponent of the material
+        transparency; //!< How translucent/see-through the material is
 
+
+  /**
+   * @brief Constructs a new solid-color material.
+   * @param color The base color
+   * @param s The specular factor
+   * @param r The reflection factor
+   * @param p The phong exponent
+   * @param t The translucency factor
+   */
   constexpr solid_material(vector color, float s, float r, float p, float t) :
     color{color}, specular{s}, reflexivity{r}, phong_exp{p}, transparency{t} {}
 
+  /**
+   * @brief Converts this material to GPU.
+   * @return The GPU representation
+   */
   [[nodiscard]] inline gpu::schema::phong_material to_gpu() const {
     return { color.to_gpu(), specular, reflexivity, phong_exp, transparency };
   }
 
-  constexpr const static char name[] = "solid";
-  constexpr const static char arg_color[] = "color";
-  constexpr const static char arg_spec[] = "specular";
-  constexpr const static char arg_refl[] = "reflect";
-  constexpr const static char arg_phong[] = "phong";
-  constexpr const static char arg_trans[] = "transparency";
+  constexpr const static char name[] = "solid"; //!< The type to use in the JSON schema
+  constexpr const static char arg_color[] = "color"; //!< The name of the color argument
+  constexpr const static char arg_spec[] = "specular"; //!< The name of the specular factor argument
+  constexpr const static char arg_refl[] = "reflect"; //!< The name of the reflection factor argument
+  constexpr const static char arg_phong[] = "phong"; //!< The name of the phong exponent argument
+  constexpr const static char arg_trans[] = "transparency"; //!< The name of the translucency factor argument
 
+  /**
+   * @brief Type alias for the solid-color material schema.
+   */
   using schema = material_schema<name, solid_material,
     ARGUMENT(arg_color, vector),
     OPTIONAL(arg_spec, float, defaults::point_three),
@@ -627,37 +823,68 @@ struct solid_material {
 
 static_assert(cpu2gpu::cpu_gpu_material_pair<solid_material, gpu::schema::phong_material >);
 
+/**
+ * @brief Type alias for the default material schema (only solid-color).
+ */
 using default_material_schema = all_materials_schema<solid_material::schema>;
 
+/**
+ * @brief Struct representing the default camera.
+ */
 struct default_cam {
-  vector pos = defaults::black::value;
-  vector up = defaults::up::value;
-  vector look = defaults::forward::value;
-  float near = defaults::point_one::value;
-  float far = defaults::one_hundred::value;
-  float ambient = defaults::point_one::value;
-  size_t w = defaults::default_width::value;
-  size_t h = defaults::default_height::value;
+  vector pos = defaults::black::value; //!< The position of the camera
+  vector up = defaults::up::value; //!< The direction the camera considers "up"
+  vector look = defaults::forward::value; //!< The point the camera looks at
+  float near = defaults::point_one::value; //!< The distance from the camera to the near-plane (unused) @deprecated
+  float far = defaults::one_hundred::value; //!< The distance from the camera to the far-plane (unused) @deprecated
+  float ambient = defaults::point_one::value; //!< The ambient lighting factor
+  size_t w = defaults::default_width::value; //!< The width of the image to render
+  size_t h = defaults::default_height::value; //!< The height of the image to render
 
+  /**
+   * @brief Constructs a default camera.
+   *
+   * The default camera is located at (0, 0, 0), with up being y=1, looking at (0, 0, 1).
+   * Its near-plane is 0.1 and far-plane is 100, with an ambient factor of 0.1.
+   * The default camera renders a 1920x1080 image.
+   */
   constexpr default_cam() = default;
+  /**
+   * @brief Constructs a new camera.
+   * @param e The eye position
+   * @param u The up vector
+   * @param l The look-at point
+   * @param n The near-distance
+   * @param f The far-distance
+   * @param w The width
+   * @param h The height
+   * @param ambient The ambient factor
+   */
   constexpr default_cam(vector e, vector u, vector l, float n, float f, size_t w, size_t h, float ambient)
     : pos{e}, up{u}, look{l}, near{n}, far{f}, w{w}, h{h}, ambient{ambient} {}
 
+  /**
+   * @brief Converts this camera to GPU.
+   * @return The GPU representation
+   */
   [[nodiscard]] inline gpu::schema::cam to_gpu() const {
     gpu::schema::cam res{ pos.to_gpu(), up.to_gpu(), {}, {}, near, far, ambient, w, h };
     res.look_at(look.to_gpu());
     return res;
   }
 
-  constexpr const static char arg_pos[] = "eye";
-  constexpr const static char arg_up[] = "up";
-  constexpr const static char arg_look[] = "look";
-  constexpr const static char arg_near[] = "near_plane";
-  constexpr const static char arg_far[] = "far_plane";
-  constexpr const static char arg_w[] = "width";
-  constexpr const static char arg_h[] = "height";
-  constexpr const static char arg_ambient[] = "ambient";
+  constexpr const static char arg_pos[] = "eye"; //!< The name of the eye position argument
+  constexpr const static char arg_up[] = "up"; //!< The name of the up vector argument
+  constexpr const static char arg_look[] = "look"; //!< The name of the look-at point argument
+  constexpr const static char arg_near[] = "near_plane"; //!< The name of the near-plane distance argument
+  constexpr const static char arg_far[] = "far_plane"; //!< The name of the far-plane distance argument
+  constexpr const static char arg_w[] = "width"; //!< The name of the image width argument
+  constexpr const static char arg_h[] = "height"; //!< The name of the image height argument
+  constexpr const static char arg_ambient[] = "ambient"; //!< The name of the ambient factor argument
 
+  /**
+   * @brief Type alias for the default camera schema.
+   */
   using schema = cam_schema<default_cam,
     MK_MANDATORY(OPTIONAL(arg_pos, vector, defaults::black)),
     MK_MANDATORY(OPTIONAL(arg_up, vector, defaults::up)),
@@ -672,31 +899,44 @@ struct default_cam {
 
 static_assert(cpu2gpu::cpu_gpu_camera_pair<default_cam, gpu::schema::cam>);
 
+/**
+ * @brief Type alias for the default schema.
+ */
 using default_schema = full_schema<default_objects_schema, default_lights_schema, default_material_schema, default_cam::schema>;
 
+/**
+ * @brief Convenience function to use the default schema to load a file.
+ * @param file The file to load
+ * @return The scene in the file
+ */
 inline default_schema::scene_t load_default(const std::string &file) {
   return default_schema::load_file(file);
 }
 
-using default_cpu_object = cpu_object_set<triangle, mesh, plane, sphere>;
-using default_cpu_light = cpu_light_set<sun, point_light>;
-using default_cpu_material = cpu_material_set<solid_material>;
-using default_cpu_cam = default_cam;
-using default_gpu_object = gpu::gpu_object_set<gpu::schema::triangle, gpu::schema::mesh, gpu::schema::plane, gpu::schema::sphere>;
-using default_gpu_light = gpu::gpu_light_set<gpu::schema::sun, gpu::schema::point_light>;
-using default_gpu_material = gpu::gpu_material_set<gpu::schema::phong_material>;
-using deafult_gpu_cam = gpu::schema::cam;
+using default_cpu_object = cpu_object_set<triangle, mesh, plane, sphere>; //!< Type alias for the default object type on CPU.
+using default_cpu_light = cpu_light_set<sun, point_light>; //!< Type alias for the default light type on CPU.
+using default_cpu_material = cpu_material_set<solid_material>; //!< Type alias for the default material type on CPU.
+using default_cpu_cam = default_cam; //!< Type alias for the default camera type on CPU.
+using default_gpu_object = gpu::gpu_object_set<gpu::schema::triangle, gpu::schema::mesh, gpu::schema::plane, gpu::schema::sphere>; //!< Type alias for the default object type on GPU.
+using default_gpu_light = gpu::gpu_light_set<gpu::schema::sun, gpu::schema::point_light>; //!< Type alias for the default light type on GPU.
+using default_gpu_material = gpu::gpu_material_set<gpu::schema::phong_material>; //!< Type alias for the default material type on GPU.
+using deafult_gpu_cam = gpu::schema::cam; //!< Type alias for the default camera type on GPU.
 
-using default_cpu_scene = cpu_scene_<default_cpu_object, default_cpu_light, default_cpu_material, default_cpu_cam>;
-using default_gpu_scene = gpu::gpu_scene_<default_gpu_object, default_gpu_light, default_gpu_material, deafult_gpu_cam>;
+using default_cpu_scene = cpu_scene<default_cpu_object, default_cpu_light, default_cpu_material, default_cpu_cam>; //!< Type alias for the default CPU scene type.
+using default_gpu_scene = gpu::gpu_scene_<default_gpu_object, default_gpu_light, default_gpu_material, deafult_gpu_cam>; //!< Type alias for the default GPU scene type.
 
-using default_converter = cpu2gpu::cpu_to_gpu<default_cpu_scene, default_gpu_scene>;
+using default_converter = cpu2gpu::cpu_to_gpu<default_cpu_scene, default_gpu_scene>; //!< Type alias for the converter between default CPU and GPU scenes.
 
+/**
+ * @brief Converts a default CPU scene to GPU.
+ * @param cpu The default CPU scene
+ * @return The GPU scene
+ */
 inline default_gpu_scene default_to_gpu(const default_cpu_scene &cpu) {
   return default_converter::convert(cpu);
 }
 
-using default_schema_viewer = viewer_for_t<default_schema>;
+using default_schema_viewer = viewer_for_t<default_schema>; //!< Type alias for a scene viewer for the default schema
 }
 
 #endif //CUTRACE_DEFAULT_SCHEMA_HPP

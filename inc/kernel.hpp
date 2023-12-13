@@ -83,7 +83,7 @@ __global__ void render_kernel(const S scene, float fudge, float *depth, vector *
  *
  * @see cutrace::render_kernel
  */
-template <typename S, size_t bounces = 10, size_t tpb = 256> requires(is_gpu_scene<S>)
+template <typename S, size_t bounces = 10, size_t tpb = 256> requires(impl::is_gpu_scene<S>)
 __host__ void render(const S &scene, float fudge, float &max, grid<float> &depth_map, grid<vector> &color_map, grid<vector> &normal_map, size_t &render_ms, size_t &total_ms) {
   auto start = std::chrono::high_resolution_clock::now();
 
@@ -147,7 +147,7 @@ __host__ void render(const S &scene, float fudge, float &max, grid<float> &depth
  * @param scene The GPU scene
  * @see cutrace::dump_scene
  */
-template <typename S> requires(is_gpu_scene<S>)
+template <typename S> requires(impl::is_gpu_scene<S>)
 __global__ void dump_scene_kernel(S scene) {
   printf(" -> Have %-4llu objects:\n", scene.objects.size);
   for(size_t i = 0; i < scene.objects.size; i++) {
@@ -171,7 +171,7 @@ __global__ void dump_scene_kernel(S scene) {
  * @param scene The GPU scene
  * @see cutrace::dump_scene_kernel
  */
-template <typename S> requires(is_gpu_scene<S>)
+template <typename S> requires(impl::is_gpu_scene<S>)
 __host__ void dump_scene(const S &scene) {
   dump_scene_kernel<<<1, 1>>>(scene);
   cudaCheck(cudaDeviceSynchronize())

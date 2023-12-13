@@ -22,7 +22,7 @@
   }
 
 
-namespace cutrace {
+namespace cutrace::impl {
 template <typename T>
 inline T checked(T t, const char *call, const char *file, int line) {
   cudaError_t err = cudaPeekAtLastError();
@@ -36,6 +36,6 @@ inline T checked(T t, const char *call, const char *file, int line) {
 }
 }
 
-#define cudaChecked(call) cutrace::checked(call, #call, __FILE__, __LINE__);
+#define cudaChecked(call) cutrace::impl::checked(call, #call, __FILE__, __LINE__);
 
 #endif //CUTRACE_CUDA_HPP

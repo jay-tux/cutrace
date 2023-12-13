@@ -28,7 +28,7 @@ namespace cutrace::gpu {
  *
  * @see cutrace::gpu::ray_color
  */
-template <typename S> requires (is_gpu_scene<S>)
+template <typename S> requires (impl::is_gpu_scene<S>)
 __device__ vector phong(const S *scene, const ray *incoming, const vector *hit, size_t hit_id, const vector *normal, const uv *tex_coords, float ambient) {
   const auto obj = &scene->objects[hit_id];
   size_t mat_i = get_mat_idx(*obj);
@@ -89,7 +89,7 @@ __device__ vector phong(const S *scene, const ray *incoming, const vector *hit, 
  *
  * @see cutrace::gpu::phong
  */
-template <typename S, size_t bounces> requires(is_gpu_scene<S>)
+template <typename S, size_t bounces> requires(impl::is_gpu_scene<S>)
 __device__ vector ray_color(const S *scene, const ray *incoming, float min_t, float ambient) {
   size_t id;
   vector normal{}, rgb{0.0f, 0.0f, 0.0f}, hit{};

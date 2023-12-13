@@ -26,7 +26,7 @@ namespace cutrace::gpu {
  * @param ignore_transparent Whether or not to ignore transparent objects
  * @return True if a hit was found, false otherwise
  */
-template <typename S> requires(is_gpu_scene<S>)
+template <typename S> requires(impl::is_gpu_scene<S>)
 __device__ bool ray_cast(const S *scene, const ray *finder, float min_dist, float *distance, size_t *hit_id, vector *hit_point, vector *normal, uv *tex_coords, bool ignore_transparent) {
   *distance = INFINITY;
   vector hit{}, nrm{};
