@@ -9,7 +9,7 @@ exhale==0.3.6
 groundwork-sphinx-theme==1.1.1
 idna==3.6
 imagesize==1.4.1
-Jinja2==3.1.2
+Jinja2==3.1.3
 lxml==4.9.3
 MarkupSafe==2.1.3
 packaging==23.2
